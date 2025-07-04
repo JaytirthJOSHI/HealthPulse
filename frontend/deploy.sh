@@ -50,4 +50,4 @@ if [ $? -eq 0 ]; then
 else
     echo "❌ Deployment failed!"
     exit 1
-fi 
+fi
