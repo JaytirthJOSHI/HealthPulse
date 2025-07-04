@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Activity, MapPin, Heart, Info } from 'lucide-react';
+import { Activity, MapPin, Heart, Info, Shield } from 'lucide-react';
 
 const Header: React.FC = () => {
   const location = useLocation();
@@ -8,6 +8,7 @@ const Header: React.FC = () => {
   const navItems = [
     { path: '/', label: 'Health Map', icon: MapPin },
     { path: '/report', label: 'Report Symptoms', icon: Activity },
+    { path: '/diseases', label: 'Disease Info', icon: Shield },
     { path: '/about', label: 'About', icon: Info },
   ];
 

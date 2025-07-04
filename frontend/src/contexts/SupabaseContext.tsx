@@ -1,23 +1,34 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { SymptomReport, HealthTip } from '../types';
+import { SymptomReport, HealthTip, Disease, Region, DiseaseRisk, HealthAggregate } from '../types';
+
+// API Configuration
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://api.pulse.health-sathi.org'
+  : 'http://localhost:3001';
 
 interface SupabaseContextType {
-  supabase: SupabaseClient | null;
+  supabase: SupabaseClient;
+  apiBaseUrl: string;
+  isConnected: boolean;
   reports: SymptomReport[];
   healthTips: HealthTip[];
+  diseases: Disease[];
+  regions: Region[];
   loading: boolean;
   error: string | null;
   addReport: (report: Omit<SymptomReport, 'id' | 'createdAt'>) => Promise<void>;
   getReportsByLocation: (country: string, pinCode: string) => Promise<SymptomReport[]>;
-  getHealthTip: (symptoms: string[]) => Promise<HealthTip | null>;
+  getHealthTip: (symptoms: string[], pinCode?: string) => Promise<HealthTip | null>;
+  getDiseaseRisk: (pinCode: string) => Promise<DiseaseRisk[]>;
+  getHealthAggregates: () => Promise<HealthAggregate[]>;
 }
 
 const SupabaseContext = createContext<SupabaseContextType | undefined>(undefined);
 
 export const useSupabase = () => {
   const context = useContext(SupabaseContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useSupabase must be used within a SupabaseProvider');
   }
   return context;
@@ -28,83 +39,101 @@ interface SupabaseProviderProps {
 }
 
 export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) => {
-  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
   const [reports, setReports] = useState<SymptomReport[]>([]);
   const [healthTips, setHealthTips] = useState<HealthTip[]>([]);
+  const [diseases, setDiseases] = useState<Disease[]>([]);
+  const [regions, setRegions] = useState<Region[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const supabase = createClient(
+    process.env.REACT_APP_SUPABASE_URL!,
+    process.env.REACT_APP_SUPABASE_ANON_KEY!
+  );
+
   useEffect(() => {
-    const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-    const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+    const checkConnection = async () => {
+      try {
+        const { data, error } = await supabase.from('health_tips').select('count').limit(1);
+        setIsConnected(!error);
+      } catch (error) {
+        console.error('Supabase connection error:', error);
+        setIsConnected(false);
+      }
+    };
 
-    if (!supabaseUrl || !supabaseAnonKey) {
-      setError('Supabase credentials not configured');
-      setLoading(false);
-      return;
-    }
+    checkConnection();
+  }, [supabase]);
 
-    const client = createClient(supabaseUrl, supabaseAnonKey);
-    setSupabase(client);
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        // Load recent reports
+        const { data: reportsData, error: reportsError } = await supabase
+          .from('symptom_reports')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(100);
 
-    // Load initial data
-    loadInitialData(client);
-  }, []);
+        if (reportsError) throw reportsError;
 
-  const loadInitialData = async (client: SupabaseClient) => {
-    try {
-      // Load recent reports
-      const { data: reportsData, error: reportsError } = await client
-        .from('symptom_reports')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
+        // Load health tips
+        const { data: tipsData, error: tipsError } = await supabase
+          .from('health_tips')
+          .select('*');
 
-      if (reportsError) throw reportsError;
+        if (tipsError) throw tipsError;
 
-      // Load health tips
-      const { data: tipsData, error: tipsError } = await client
-        .from('health_tips')
-        .select('*');
+        // Load diseases
+        const { data: diseasesData, error: diseasesError } = await supabase
+          .from('diseases')
+          .select('*');
 
-      if (tipsError) throw tipsError;
+        if (diseasesError) throw diseasesError;
 
-      setReports(reportsData || []);
-      setHealthTips(tipsData || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  };
+        // Load regions
+        const { data: regionsData, error: regionsError } = await supabase
+          .from('regions')
+          .select('*');
+
+        if (regionsError) throw regionsError;
+
+        setReports(reportsData || []);
+        setHealthTips(tipsData || []);
+        setDiseases(diseasesData || []);
+        setRegions(regionsData || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadInitialData();
+  }, [supabase]);
 
   const addReport = async (report: Omit<SymptomReport, 'id' | 'createdAt'>) => {
-    if (!supabase) throw new Error('Supabase not initialized');
-
     try {
-      const { data, error } = await supabase
-        .from('symptom_reports')
-        .insert([{
-          nickname: report.nickname,
-          country: report.country,
-          pin_code: report.pinCode,
-          symptoms: report.symptoms,
-          illness_type: report.illnessType,
-          severity: report.severity,
-          latitude: report.latitude,
-          longitude: report.longitude,
-        }])
-        .select()
-        .single();
+      const response = await fetch(`${API_BASE_URL}/api/reports`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(report),
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
+      const result = await response.json();
       const newReport: SymptomReport = {
-        ...data,
-        id: data.id,
-        pinCode: data.pin_code,
-        illnessType: data.illness_type,
-        createdAt: data.created_at,
+        ...result.data,
+        id: result.data.id,
+        pinCode: result.data.pin_code,
+        illnessType: result.data.illness_type,
+        createdAt: result.data.created_at,
       };
 
       setReports(prev => [newReport, ...prev]);
@@ -140,16 +169,28 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
     }
   };
 
-  const getHealthTip = async (symptoms: string[]): Promise<HealthTip | null> => {
+  const getHealthTip = async (symptoms: string[], pinCode?: string): Promise<HealthTip | null> => {
     if (!supabase) throw new Error('Supabase not initialized');
 
     try {
-      // Simple logic to find relevant health tip based on symptoms
-      const { data, error } = await supabase
+      let query = supabase
         .from('health_tips')
         .select('*')
-        .limit(1);
+        .overlaps('symptoms', symptoms);
 
+      if (pinCode) {
+        // Use the enhanced function that considers location
+        const { data, error } = await supabase
+          .rpc('get_health_tip_by_symptoms_and_location', {
+            symptom_list: symptoms,
+            location_pin_code: pinCode
+          });
+
+        if (error) throw error;
+        return data?.[0] || null;
+      }
+
+      const { data, error } = await query.limit(1);
       if (error) throw error;
 
       return data?.[0] || null;
@@ -159,15 +200,54 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
     }
   };
 
+  const getDiseaseRisk = async (pinCode: string): Promise<DiseaseRisk[]> => {
+    if (!supabase) throw new Error('Supabase not initialized');
+
+    try {
+      const { data, error } = await supabase
+        .rpc('get_disease_risk_for_location', {
+          location_pin_code: pinCode
+        });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to get disease risk');
+      return [];
+    }
+  };
+
+  const getHealthAggregates = async (): Promise<HealthAggregate[]> => {
+    if (!supabase) throw new Error('Supabase not initialized');
+
+    try {
+      const { data, error } = await supabase
+        .from('health_aggregates')
+        .select('*');
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to get health aggregates');
+      return [];
+    }
+  };
+
   const value: SupabaseContextType = {
     supabase,
+    apiBaseUrl: API_BASE_URL,
+    isConnected,
     reports,
     healthTips,
+    diseases,
+    regions,
     loading,
     error,
     addReport,
     getReportsByLocation,
     getHealthTip,
+    getDiseaseRisk,
+    getHealthAggregates,
   };
 
   return (
@@ -175,4 +255,4 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
       {children}
     </SupabaseContext.Provider>
   );
-}; 
+};

@@ -1,0 +1,23 @@
+name = "healthpulse-frontend"
+compatibility_date = "2024-01-01"
+
+[env.production]
+name = "healthpulse-frontend"
+route = "pulse.health-sathi.org/*"
+zone_id = "your-zone-id-here"
+
+[env.staging]
+name = "healthpulse-frontend-staging"
+
+[build]
+command = "npm run build"
+cwd = "."
+
+[site]
+bucket = "./build"
+entry-point = "."
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200 

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
 import HealthMap from './components/HealthMap';
 import SymptomReport from './components/SymptomReport';
+import DiseaseInfo from './components/DiseaseInfo';
 import About from './components/About';
 import { SocketProvider } from './contexts/SocketContext';
 import { SupabaseProvider } from './contexts/SupabaseContext';
@@ -18,6 +19,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<HealthMap />} />
                 <Route path="/report" element={<SymptomReport />} />
+                <Route path="/diseases" element={<DiseaseInfo />} />
                 <Route path="/about" element={<About />} />
               </Routes>
             </main>

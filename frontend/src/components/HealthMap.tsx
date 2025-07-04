@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import { useSupabase } from '../contexts/SupabaseContext';
 import { useSocket } from '../contexts/SocketContext';

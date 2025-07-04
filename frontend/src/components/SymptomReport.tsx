@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSupabase } from '../contexts/SupabaseContext';
 import { useSocket } from '../contexts/SocketContext';
@@ -34,6 +34,9 @@ const SymptomReport: React.FC = () => {
     { value: 'flu', label: 'Flu/Common Cold' },
     { value: 'dengue', label: 'Dengue' },
     { value: 'covid', label: 'COVID-19' },
+    { value: 'malaria', label: 'Malaria' },
+    { value: 'typhoid', label: 'Typhoid' },
+    { value: 'chikungunya', label: 'Chikungunya' },
     { value: 'other', label: 'Other' },
     { value: 'unknown', label: 'Unknown' },
   ];
@@ -342,4 +345,4 @@ const SymptomReport: React.FC = () => {
   );
 };
 
-export default SymptomReport; 
+export default SymptomReport;

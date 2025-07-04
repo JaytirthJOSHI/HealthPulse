@@ -15,15 +15,17 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@types/react-router-dom": "^5.3.3",
+    "autoprefixer": "^10.4.21",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.525.0",
+    "postcss": "^8.5.6",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.6.3",
     "react-scripts": "5.0.1",
     "socket.io-client": "^4.8.1",
-    "tailwindcss": "^4.1.11",
+    "tailwindcss": "^3.4.17",
     "typescript": "^4.9.5",
     "web-vitals": "^2.1.4"
   },
@@ -31,7 +33,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "deploy": "npm run build && wrangler pages deploy build --project-name=healthpulse-frontend",
+    "deploy:staging": "npm run build && wrangler pages deploy build --project-name=healthpulse-frontend --branch=staging"
   },
   "eslintConfig": {
     "extends": [

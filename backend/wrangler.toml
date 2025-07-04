@@ -1,0 +1,29 @@
+name = "healthpulse-api"
+main = "src/worker.js"
+compatibility_date = "2024-01-01"
+
+[env.production]
+name = "healthpulse-api"
+
+[env.staging]
+name = "healthpulse-api-staging"
+
+[build]
+command = "echo 'No build step needed for Workers'"
+
+# Custom domain configuration
+[[env.production.routes]]
+pattern = "api.pulse.health-sathi.org/*"
+zone_name = "health-sathi.org"
+
+[[env.staging.routes]]
+pattern = "api-staging.pulse.health-sathi.org/*"
+zone_name = "health-sathi.org"
+
+[[env.production.kv_namespaces]]
+binding = "HEALTH_DATA"
+id = "your-kv-namespace-id"
+
+[[env.staging.kv_namespaces]]
+binding = "HEALTH_DATA"
+id = "your-staging-kv-namespace-id"

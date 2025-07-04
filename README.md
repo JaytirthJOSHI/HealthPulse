@@ -75,5 +75,4 @@ This is a public health tool designed to help communities monitor health trends.
 
 ## 📄 License
 
-MIT License - see LICENSE file for details
-
+Jaytirth Joshi License - see LICENSE file for details

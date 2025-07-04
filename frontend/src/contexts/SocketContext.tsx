@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SocketMessage, SymptomReport } from '../types';
 
 interface SocketContextType {
-  socket: Socket | null;
   connected: boolean;
   sendMessage: (message: SocketMessage) => void;
   reports: SymptomReport[];
@@ -24,56 +23,94 @@ interface SocketProviderProps {
 }
 
 export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
-  const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const [reports, setReports] = useState<SymptomReport[]>([]);
 
+  // Initialize Supabase client for real-time
+  const supabase = createClient(
+    process.env.REACT_APP_SUPABASE_URL!,
+    process.env.REACT_APP_SUPABASE_ANON_KEY!
+  );
+
   useEffect(() => {
-    const socketUrl = process.env.REACT_APP_SOCKET_URL || 'http://localhost:3001';
-    const newSocket = io(socketUrl, {
-      transports: ['websocket', 'polling'],
-    });
-
-    newSocket.on('connect', () => {
-      console.log('Connected to server');
-      setConnected(true);
-    });
-
-    newSocket.on('disconnect', () => {
-      console.log('Disconnected from server');
-      setConnected(false);
-    });
-
-    newSocket.on('new_report', (data: SymptomReport) => {
-      console.log('New report received:', data);
-      setReports(prev => [data, ...prev]);
-    });
-
-    newSocket.on('update_map', (data: any) => {
-      console.log('Map update received:', data);
-      // Handle map updates
-    });
-
-    newSocket.on('health_tip', (data: any) => {
-      console.log('Health tip received:', data);
-      // Handle health tips
-    });
-
-    setSocket(newSocket);
+    // Subscribe to real-time changes on symptom_reports table
+    const channel = supabase
+      .channel('symptom_reports_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'symptom_reports',
+        },
+        (payload) => {
+          console.log('New report received:', payload.new);
+          const newReport: SymptomReport = {
+            id: payload.new.id,
+            nickname: payload.new.nickname,
+            country: payload.new.country,
+            pinCode: payload.new.pin_code,
+            symptoms: payload.new.symptoms,
+            illnessType: payload.new.illness_type,
+            severity: payload.new.severity,
+            latitude: payload.new.latitude,
+            longitude: payload.new.longitude,
+            createdAt: payload.new.created_at,
+          };
+          setReports(prev => [newReport, ...prev]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'symptom_reports',
+        },
+        (payload) => {
+          console.log('Report updated:', payload.new);
+          // Handle report updates if needed
+        }
+      )
+      .subscribe((status) => {
+        console.log('Subscription status:', status);
+        setConnected(status === 'SUBSCRIBED');
+      });
 
     return () => {
-      newSocket.close();
+      supabase.removeChannel(channel);
     };
-  }, []);
+  }, [supabase]);
 
-  const sendMessage = (message: SocketMessage) => {
-    if (socket && connected) {
-      socket.emit(message.type, message.data);
+  const sendMessage = async (message: SocketMessage) => {
+    if (!connected) {
+      console.warn('Not connected to real-time service');
+      return;
+    }
+
+    try {
+      switch (message.type) {
+        case 'new_report':
+          // Reports are handled via REST API, not real-time
+          console.log('New report should be sent via REST API');
+          break;
+        case 'update_map':
+          // You can implement map updates via Supabase real-time if needed
+          console.log('Map update:', message.data);
+          break;
+        case 'health_tip':
+          // Health tips can be handled via REST API
+          console.log('Health tip request:', message.data);
+          break;
+        default:
+          console.log('Unknown message type:', message.type);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
     }
   };
 
   const value: SocketContextType = {
-    socket,
     connected,
     sendMessage,
     reports,

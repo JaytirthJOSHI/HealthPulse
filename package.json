@@ -1,0 +1,12 @@
+{
+  "name": "healthpulse",
+  "version": "1.0.0",
+  "description": "HealthPulse - Health monitoring application",
+  "scripts": {
+    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm start\"",
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}
