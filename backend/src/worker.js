@@ -354,4 +354,4 @@ async function handleGetAggregates(supabase) {
       }
     );
   }
-} 
+}

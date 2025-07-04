@@ -71,7 +71,7 @@ export interface LocationData {
   longitude?: number;
 }
 
-export interface SocketMessage {
+export interface RealTimeMessage {
   type: 'new_report' | 'update_map' | 'health_tip' | 'disease_alert';
   data: any;
 }

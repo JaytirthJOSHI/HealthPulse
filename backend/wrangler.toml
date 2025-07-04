@@ -2,6 +2,11 @@ name = "healthpulse-api"
 main = "src/worker.js"
 compatibility_date = "2024-01-01"
 
+# Environment variables for Supabase
+[vars]
+SUPABASE_URL = "https://xchwpafqmkfheyxuvtij.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjaHdwYWZxbWtmaGV5eHV2dGlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1MTc1ODgsImV4cCI6MjA2NzA5MzU4OH0.64Ool-fY2NGDgyhyBW6uNdHI7pucVOmtJMRS0uRqitc"
+
 [env.production]
 name = "healthpulse-api"
 
@@ -19,11 +24,3 @@ zone_name = "health-sathi.org"
 [[env.staging.routes]]
 pattern = "api-staging.pulse.health-sathi.org/*"
 zone_name = "health-sathi.org"
-
-[[env.production.kv_namespaces]]
-binding = "HEALTH_DATA"
-id = "your-kv-namespace-id"
-
-[[env.staging.kv_namespaces]]
-binding = "HEALTH_DATA"
-id = "your-staging-kv-namespace-id"

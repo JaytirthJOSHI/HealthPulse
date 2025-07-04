@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import { useSupabase } from '../contexts/SupabaseContext';
-import { useSocket } from '../contexts/SocketContext';
+import { useRealTime } from '../contexts/RealTimeContext';
 import { MapDataPoint, SymptomReport } from '../types';
 import { Activity, Users, AlertTriangle } from 'lucide-react';
 
@@ -10,7 +10,7 @@ import 'leaflet/dist/leaflet.css';
 
 const HealthMap: React.FC = () => {
   const { reports, loading } = useSupabase();
-  const { connected } = useSocket();
+  const { connected } = useRealTime();
   const [mapData, setMapData] = useState<MapDataPoint[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<string>('');
   const [locationReports, setLocationReports] = useState<SymptomReport[]>([]);

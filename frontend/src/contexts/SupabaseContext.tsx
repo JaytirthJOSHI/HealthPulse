@@ -2,10 +2,16 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SymptomReport, HealthTip, Disease, Region, DiseaseRisk, HealthAggregate } from '../types';
 
+// Create a single shared Supabase client instance
+export const supabaseClient = createClient(
+  process.env.REACT_APP_SUPABASE_URL!,
+  process.env.REACT_APP_SUPABASE_ANON_KEY!
+);
+
 // API Configuration
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
   ? 'https://api.pulse.health-sathi.org'
-  : 'http://localhost:3001';
+  : 'http://localhost:8787';
 
 interface SupabaseContextType {
   supabase: SupabaseClient;
@@ -47,15 +53,12 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const supabase = createClient(
-    process.env.REACT_APP_SUPABASE_URL!,
-    process.env.REACT_APP_SUPABASE_ANON_KEY!
-  );
+  const supabase = supabaseClient;
 
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        const { data, error } = await supabase.from('health_tips').select('count').limit(1);
+        const { error } = await supabase.from('health_tips').select('count').limit(1);
         setIsConnected(!error);
       } catch (error) {
         console.error('Supabase connection error:', error);

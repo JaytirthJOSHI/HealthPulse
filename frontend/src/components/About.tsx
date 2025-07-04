@@ -66,7 +66,7 @@ const About: React.FC = () => {
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Real-Time Updates</h3>
               <p className="text-gray-600">
-                Live updates using WebSocket technology. See health trends as they develop 
+                Live updates using Supabase real-time subscriptions. See health trends as they develop 
                 in your area.
               </p>
             </div>
@@ -222,7 +222,7 @@ const About: React.FC = () => {
           </div>
           <div className="text-center p-4 bg-gray-50 rounded-lg">
             <h3 className="font-semibold text-gray-900">Real-time</h3>
-            <p className="text-sm text-gray-600">Socket.io</p>
+                            <p className="text-sm text-gray-600">Supabase Real-time</p>
           </div>
           <div className="text-center p-4 bg-gray-50 rounded-lg">
             <h3 className="font-semibold text-gray-900">Database</h3>
@@ -260,4 +260,4 @@ const About: React.FC = () => {
   );
 };
 
-export default About; 
+export default About;

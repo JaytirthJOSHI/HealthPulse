@@ -1,14 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSupabase } from '../contexts/SupabaseContext';
-import { useSocket } from '../contexts/SocketContext';
+import { useRealTime } from '../contexts/RealTimeContext';
 import { SymptomReport as SymptomReportType, HealthTip } from '../types';
-import { Activity, MapPin, User, AlertTriangle, CheckCircle, Heart } from 'lucide-react';
+import { Activity, MapPin, User, AlertTriangle, CheckCircle, Heart, Loader2, Check, X } from 'lucide-react';
+
+// Country data with postal code formats
+const countries = [
+  { code: 'IN', name: 'India', postalFormat: 'PIN Code (6 digits)', example: '400001' },
+  { code: 'US', name: 'United States', postalFormat: 'ZIP Code (5 digits)', example: '10001' },
+  { code: 'CA', name: 'Canada', postalFormat: 'Postal Code (A1A 1A1)', example: 'M5V 3A8' },
+  { code: 'GB', name: 'United Kingdom', postalFormat: 'Postcode (AA1A 1AA)', example: 'SW1A 1AA' },
+  { code: 'AU', name: 'Australia', postalFormat: 'Postcode (4 digits)', example: '2000' },
+  { code: 'DE', name: 'Germany', postalFormat: 'Postal Code (5 digits)', example: '10115' },
+  { code: 'FR', name: 'France', postalFormat: 'Postal Code (5 digits)', example: '75001' },
+  { code: 'JP', name: 'Japan', postalFormat: 'Postal Code (3-5 digits)', example: '100-0001' },
+  { code: 'BR', name: 'Brazil', postalFormat: 'CEP (8 digits)', example: '20040-007' },
+  { code: 'MX', name: 'Mexico', postalFormat: 'Postal Code (5 digits)', example: '06000' },
+  { code: 'IT', name: 'Italy', postalFormat: 'CAP (5 digits)', example: '00100' },
+  { code: 'ES', name: 'Spain', postalFormat: 'Postal Code (5 digits)', example: '28001' },
+  { code: 'NL', name: 'Netherlands', postalFormat: 'Postal Code (4 digits + 2 letters)', example: '1000 AA' },
+  { code: 'SE', name: 'Sweden', postalFormat: 'Postal Code (5 digits)', example: '111 20' },
+  { code: 'NO', name: 'Norway', postalFormat: 'Postal Code (4 digits)', example: '0001' },
+];
 
 const SymptomReport: React.FC = () => {
   const navigate = useNavigate();
   const { addReport, getHealthTip } = useSupabase();
-  const { sendMessage } = useSocket();
+  const { sendMessage } = useRealTime();
   
   const [formData, setFormData] = useState({
     nickname: '',
@@ -23,6 +42,17 @@ const SymptomReport: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Location validation states
+  const [validatingLocation, setValidatingLocation] = useState(false);
+  const [locationValid, setLocationValid] = useState<boolean | null>(null);
+  const [locationDetails, setLocationDetails] = useState<{
+    city?: string;
+    state?: string;
+    country?: string;
+    latitude?: number;
+    longitude?: number;
+  } | null>(null);
 
   const availableSymptoms = [
     'Fever', 'Cough', 'Sore throat', 'Headache', 'Fatigue',
@@ -67,12 +97,19 @@ const SymptomReport: React.FC = () => {
         throw new Error('Please fill in your location details');
       }
 
+      if (locationValid !== true) {
+        throw new Error('Please enter a valid postal code for your selected country');
+      }
+
       if (formData.symptoms.length === 0) {
         throw new Error('Please select at least one symptom');
       }
 
-      // Get coordinates from PIN code (simplified - in real app, use geocoding service)
-      const coordinates = await getCoordinatesFromPinCode(formData.pinCode);
+      // Get coordinates from validated location
+      const coordinates = locationDetails ? {
+        latitude: locationDetails.latitude,
+        longitude: locationDetails.longitude
+      } : null;
 
       const report: Omit<SymptomReportType, 'id' | 'createdAt'> = {
         nickname: formData.nickname || undefined,
@@ -120,18 +157,91 @@ const SymptomReport: React.FC = () => {
     }
   };
 
-  // Simplified geocoding - in real app, use a proper geocoding service
-  const getCoordinatesFromPinCode = async (pinCode: string) => {
-    // This is a mock implementation
-    // In a real app, you would use a geocoding service like Google Maps API
-    const mockCoordinates = {
-      '400001': { latitude: 19.0760, longitude: 72.8777 }, // Mumbai
-      '110001': { latitude: 28.6139, longitude: 77.2090 }, // Delhi
-      '700001': { latitude: 22.5726, longitude: 88.3639 }, // Kolkata
-      '600001': { latitude: 13.0827, longitude: 80.2707 }, // Chennai
-    };
+  // Get selected country details
+  const selectedCountry = countries.find(c => c.code === formData.country);
 
-    return mockCoordinates[pinCode as keyof typeof mockCoordinates] || null;
+  // Validate postal code using geocoding API
+  const validatePostalCode = async (postalCode: string, countryCode: string) => {
+    if (!postalCode || !countryCode) return null;
+
+    setValidatingLocation(true);
+    setLocationValid(null);
+    setLocationDetails(null);
+
+    try {
+      // Use Nominatim (OpenStreetMap) API for geocoding
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(postalCode)}&country=${countryCode}&format=json&limit=1`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'HealthPulse/1.0'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Geocoding service unavailable');
+      }
+
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        const result = data[0];
+        setLocationValid(true);
+        setLocationDetails({
+          city: result.address?.city || result.address?.town || result.address?.village,
+          state: result.address?.state,
+          country: result.address?.country,
+          latitude: parseFloat(result.lat),
+          longitude: parseFloat(result.lon)
+        });
+        return {
+          latitude: parseFloat(result.lat),
+          longitude: parseFloat(result.lon)
+        };
+      } else {
+        setLocationValid(false);
+        setLocationDetails(null);
+        return null;
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      setLocationValid(false);
+      setLocationDetails(null);
+      return null;
+    } finally {
+      setValidatingLocation(false);
+    }
+  };
+
+  // Handle postal code input with validation
+  const handlePostalCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const postalCode = e.target.value;
+    setFormData(prev => ({ ...prev, pinCode: postalCode }));
+    
+    // Reset validation states when input changes
+    setLocationValid(null);
+    setLocationDetails(null);
+  };
+
+  // Debounced validation effect
+  useEffect(() => {
+    if (formData.pinCode && formData.country) {
+      const timeoutId = setTimeout(() => {
+        validatePostalCode(formData.pinCode, formData.country);
+      }, 1000);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formData.pinCode, formData.country]);
+
+  // Handle country change
+  const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const countryCode = e.target.value;
+    setFormData(prev => ({ ...prev, country: countryCode, pinCode: '' }));
+    setLocationValid(null);
+    setLocationDetails(null);
   };
 
   if (success) {
@@ -200,34 +310,87 @@ const SymptomReport: React.FC = () => {
               Location Information
             </h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Country
                 </label>
-                <input
-                  type="text"
+                <select
                   value={formData.country}
-                  onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value }))}
+                  onChange={handleCountryChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="e.g., India"
                   required
-                />
+                >
+                  <option value="">Select a country</option>
+                  {countries.map((country) => (
+                    <option key={country.code} value={country.code}>
+                      {country.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  PIN Code
-                </label>
-                <input
-                  type="text"
-                  value={formData.pinCode}
-                  onChange={(e) => setFormData(prev => ({ ...prev, pinCode: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="e.g., 400001"
-                  required
-                />
-              </div>
+              {formData.country && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {selectedCountry?.postalFormat || 'Postal Code'}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={formData.pinCode}
+                      onChange={handlePostalCodeChange}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 pr-10 ${
+                        locationValid === true ? 'border-green-500' :
+                        locationValid === false ? 'border-red-500' :
+                        'border-gray-300'
+                      }`}
+                      placeholder={selectedCountry?.example || 'e.g., 400001'}
+                      required
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                      {validatingLocation && (
+                        <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                      )}
+                      {locationValid === true && (
+                        <Check className="w-5 h-5 text-green-500" />
+                      )}
+                      {locationValid === false && (
+                        <X className="w-5 h-5 text-red-500" />
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Location validation feedback */}
+                  {locationValid === true && locationDetails && (
+                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center text-sm text-green-800">
+                        <Check className="w-4 h-4 mr-1" />
+                        <span>
+                          {locationDetails.city && `${locationDetails.city}, `}
+                          {locationDetails.state && `${locationDetails.state}, `}
+                          {locationDetails.country}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {locationValid === false && (
+                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex items-center text-sm text-red-800">
+                        <X className="w-4 h-4 mr-1" />
+                        <span>Invalid postal code for {selectedCountry?.name}</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {selectedCountry && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Format: {selectedCountry.postalFormat}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

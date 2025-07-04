@@ -5,13 +5,13 @@ import HealthMap from './components/HealthMap';
 import SymptomReport from './components/SymptomReport';
 import DiseaseInfo from './components/DiseaseInfo';
 import About from './components/About';
-import { SocketProvider } from './contexts/SocketContext';
+import { RealTimeProvider } from './contexts/RealTimeContext';
 import { SupabaseProvider } from './contexts/SupabaseContext';
 
 function App() {
   return (
     <SupabaseProvider>
-      <SocketProvider>
+      <RealTimeProvider>
         <Router>
           <div className="min-h-screen bg-gray-50">
             <Header />
@@ -25,7 +25,7 @@ function App() {
             </main>
           </div>
         </Router>
-      </SocketProvider>
+      </RealTimeProvider>
     </SupabaseProvider>
   );
 }

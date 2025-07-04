@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSupabase } from '../contexts/SupabaseContext';
-import { Disease, DiseaseRisk, HealthAggregate } from '../types';
-import { AlertTriangle, MapPin, Activity, Users, TrendingUp, Shield, Thermometer, Droplets } from 'lucide-react';
+import { AlertTriangle, MapPin, Shield, Thermometer, TrendingUp } from 'lucide-react';
+import { DiseaseRisk, HealthAggregate } from '../types';
 
 const DiseaseInfo: React.FC = () => {
   const { diseases, getDiseaseRisk, getHealthAggregates } = useSupabase();
@@ -23,11 +23,6 @@ const DiseaseInfo: React.FC = () => {
     { code: '800001', city: 'Patna', state: 'Bihar' },
   ];
 
-  useEffect(() => {
-    loadDiseaseRisk();
-    loadHealthAggregates();
-  }, [selectedPinCode]);
-
   const loadDiseaseRisk = async () => {
     setLoading(true);
     try {
@@ -48,6 +43,12 @@ const DiseaseInfo: React.FC = () => {
       console.error('Failed to load health aggregates:', error);
     }
   };
+
+  useEffect(() => {
+    loadDiseaseRisk();
+    loadHealthAggregates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPinCode]);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -137,7 +138,7 @@ const DiseaseInfo: React.FC = () => {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {diseaseRisks.map((risk, index) => (
+            {(diseaseRisks || []).map((risk, index) => (
               <div key={index} className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold text-gray-900">{risk.diseaseName}</h3>
@@ -157,7 +158,7 @@ const DiseaseInfo: React.FC = () => {
                   <div>
                     <span className="text-sm text-gray-600">Seasonal Peak:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {risk.seasonalPeak.map((season, idx) => (
+                      {(risk.seasonalPeak || []).map((season, idx) => (
                         <span
                           key={idx}
                           className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -175,7 +176,7 @@ const DiseaseInfo: React.FC = () => {
                   <div>
                     <span className="text-sm text-gray-600">Risk Factors:</span>
                     <div className="mt-1">
-                      {risk.riskFactors.map((factor, idx) => (
+                      {(risk.riskFactors || []).map((factor, idx) => (
                         <div key={idx} className="text-xs text-gray-500 flex items-center">
                           <span className="w-1 h-1 bg-gray-400 rounded-full mr-2"></span>
                           {factor}
@@ -197,62 +198,68 @@ const DiseaseInfo: React.FC = () => {
           Disease Database
         </h2>
         
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {diseases.slice(0, 9).map((disease) => (
-            <div key={disease.id} className="border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-gray-900">{disease.name}</h3>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(disease.severityLevel)}`}>
-                  {disease.severityLevel}
-                </span>
+        {!diseases ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {(diseases || []).slice(0, 9).map((disease) => (
+              <div key={disease.id} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-gray-900">{disease.name}</h3>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(disease.severityLevel)}`}>
+                    {disease.severityLevel}
+                  </span>
+                </div>
+                
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="text-gray-600">Category:</span>
+                    <span className="ml-2 font-medium capitalize">{disease.category.replace('_', ' ')}</span>
+                  </div>
+                  
+                  <div>
+                    <span className="text-gray-600">Transmission:</span>
+                    <div className="mt-1">
+                      {(disease.transmissionMethod || []).map((method, idx) => (
+                        <span key={idx} className="inline-block px-2 py-1 bg-gray-100 rounded text-xs mr-1 mb-1">
+                          {method.replace('_', ' ')}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <span className="text-gray-600">Common Symptoms:</span>
+                    <div className="mt-1">
+                      {(disease.commonSymptoms || []).slice(0, 3).map((symptom, idx) => (
+                        <span key={idx} className="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs mr-1 mb-1">
+                          {symptom}
+                        </span>
+                      ))}
+                      {(disease.commonSymptoms || []).length > 3 && (
+                        <span className="text-xs text-gray-500">+{(disease.commonSymptoms || []).length - 3} more</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <span className="text-gray-600">Prevention:</span>
+                    <div className="mt-1">
+                      {(disease.preventionMethods || []).slice(0, 2).map((method, idx) => (
+                        <div key={idx} className="text-xs text-gray-500 flex items-center">
+                          <span className="w-1 h-1 bg-green-400 rounded-full mr-2"></span>
+                          {method}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
-              
-              <div className="space-y-2 text-sm">
-                <div>
-                  <span className="text-gray-600">Category:</span>
-                  <span className="ml-2 font-medium capitalize">{disease.category.replace('_', ' ')}</span>
-                </div>
-                
-                <div>
-                  <span className="text-gray-600">Transmission:</span>
-                  <div className="mt-1">
-                    {disease.transmissionMethod.map((method, idx) => (
-                      <span key={idx} className="inline-block px-2 py-1 bg-gray-100 rounded text-xs mr-1 mb-1">
-                        {method.replace('_', ' ')}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                
-                <div>
-                  <span className="text-gray-600">Common Symptoms:</span>
-                  <div className="mt-1">
-                    {disease.commonSymptoms.slice(0, 3).map((symptom, idx) => (
-                      <span key={idx} className="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs mr-1 mb-1">
-                        {symptom}
-                      </span>
-                    ))}
-                    {disease.commonSymptoms.length > 3 && (
-                      <span className="text-xs text-gray-500">+{disease.commonSymptoms.length - 3} more</span>
-                    )}
-                  </div>
-                </div>
-                
-                <div>
-                  <span className="text-gray-600">Prevention:</span>
-                  <div className="mt-1">
-                    {disease.preventionMethods.slice(0, 2).map((method, idx) => (
-                      <div key={idx} className="text-xs text-gray-500 flex items-center">
-                        <span className="w-1 h-1 bg-green-400 rounded-full mr-2"></span>
-                        {method}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Health Aggregates */}
@@ -263,7 +270,7 @@ const DiseaseInfo: React.FC = () => {
         </h2>
         
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {healthAggregates.slice(0, 6).map((aggregate, index) => (
+          {(healthAggregates || []).slice(0, 6).map((aggregate, index) => (
             <div key={index} className="border border-gray-200 rounded-lg p-4">
                              <div className="flex items-center justify-between mb-3">
                  <h3 className="font-semibold text-gray-900">{aggregate.pinCode}</h3>
@@ -303,4 +310,4 @@ const DiseaseInfo: React.FC = () => {
   );
 };
 
-export default DiseaseInfo; 
+export default DiseaseInfo;
