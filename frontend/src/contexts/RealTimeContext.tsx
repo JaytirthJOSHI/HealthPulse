@@ -97,7 +97,7 @@ export const RealTimeProvider: React.FC<RealTimeProviderProps> = ({ children }) 
         supabase.removeChannel(channel);
       }
     };
-  }, []); // Remove supabase from dependencies since it's now stable
+  }, [supabase]); // Add supabase back to dependencies
 
   const sendMessage = async (message: RealTimeMessage) => {
     if (!connected) {

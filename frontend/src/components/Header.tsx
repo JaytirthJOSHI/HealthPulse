@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Activity, MapPin, Heart, Info, Shield, Sun, Moon } from 'lucide-react';
+import { Activity, MapPin, Info, Shield, Sun, Moon } from 'lucide-react';
 
 const Header: React.FC = () => {
   const location = useLocation();

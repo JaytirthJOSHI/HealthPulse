@@ -169,9 +169,9 @@ const SymptomReport: React.FC = () => {
     setLocationDetails(null);
 
     try {
-      // Use Nominatim (OpenStreetMap) API for geocoding
+      // Try Nominatim (OpenStreetMap) API first
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(postalCode)}&country=${countryCode}&format=json&limit=1`,
+        `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(postalCode)}&country=${countryCode}&format=json&limit=1&addressdetails=1`,
         {
           headers: {
             'Accept': 'application/json',
@@ -188,11 +188,23 @@ const SymptomReport: React.FC = () => {
 
       if (data && data.length > 0) {
         const result = data[0];
+        const address = result.address || {};
+        
+        // Extract city name from various possible fields
+        const city = address.city || 
+                    address.town || 
+                    address.village || 
+                    address.municipality ||
+                    address.county ||
+                    address.state_district ||
+                    address.suburb ||
+                    address.neighbourhood;
+
         setLocationValid(true);
         setLocationDetails({
-          city: result.address?.city || result.address?.town || result.address?.village,
-          state: result.address?.state,
-          country: result.address?.country,
+          city: city,
+          state: address.state,
+          country: address.country,
           latitude: parseFloat(result.lat),
           longitude: parseFloat(result.lon)
         });
@@ -201,13 +213,63 @@ const SymptomReport: React.FC = () => {
           longitude: parseFloat(result.lon)
         };
       } else {
+        // Try alternative search without country restriction
+        const fallbackResponse = await fetch(
+          `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(postalCode)}&format=json&limit=1&addressdetails=1`,
+          {
+            headers: {
+              'Accept': 'application/json',
+              'User-Agent': 'HealthPulse/1.0'
+            }
+          }
+        );
+
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          
+          if (fallbackData && fallbackData.length > 0) {
+            const result = fallbackData[0];
+            const address = result.address || {};
+            
+            // Check if the result matches the selected country
+            if (address.country_code?.toUpperCase() === countryCode) {
+              const city = address.city || 
+                          address.town || 
+                          address.village || 
+                          address.municipality ||
+                          address.county ||
+                          address.state_district ||
+                          address.suburb ||
+                          address.neighbourhood;
+
+              setLocationValid(true);
+              setLocationDetails({
+                city: city,
+                state: address.state,
+                country: address.country,
+                latitude: parseFloat(result.lat),
+                longitude: parseFloat(result.lon)
+              });
+              return {
+                latitude: parseFloat(result.lat),
+                longitude: parseFloat(result.lon)
+              };
+            }
+          }
+        }
+        
         setLocationValid(false);
         setLocationDetails(null);
         return null;
       }
     } catch (error) {
       console.error('Geocoding error:', error);
-      setLocationValid(false);
+      // Don't mark as invalid if it's a network/API error, just show as not validated
+      if (error instanceof Error && error.message.includes('unavailable')) {
+        setLocationValid(null);
+      } else {
+        setLocationValid(false);
+      }
       setLocationDetails(null);
       return null;
     } finally {
@@ -363,31 +425,48 @@ const SymptomReport: React.FC = () => {
                   
                   {/* Location validation feedback */}
                   {locationValid === true && locationDetails && (
-                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-center text-sm text-green-800">
+                    <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center text-sm text-green-800 mb-1">
                         <Check className="w-4 h-4 mr-1" />
-                        <span>
-                          {locationDetails.city && `${locationDetails.city}, `}
-                          {locationDetails.state && `${locationDetails.state}, `}
-                          {locationDetails.country}
-                        </span>
+                        <span className="font-medium">Location Verified ✓</span>
+                      </div>
+                      <div className="text-sm text-green-700">
+                        <div className="font-medium">
+                          {locationDetails.city && `${locationDetails.city}`}
+                          {locationDetails.state && `, ${locationDetails.state}`}
+                          {locationDetails.country && `, ${locationDetails.country}`}
+                        </div>
+                        {locationDetails.latitude && locationDetails.longitude && (
+                          <div className="text-xs text-green-600 mt-1">
+                            Coordinates: {locationDetails.latitude.toFixed(4)}, {locationDetails.longitude.toFixed(4)}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
                   
                   {locationValid === false && (
-                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-                      <div className="flex items-center text-sm text-red-800">
+                    <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex items-center text-sm text-red-800 mb-1">
                         <X className="w-4 h-4 mr-1" />
-                        <span>Invalid postal code for {selectedCountry?.name}</span>
+                        <span className="font-medium">Invalid postal code</span>
+                      </div>
+                      <div className="text-sm text-red-700">
+                        <p>Please check the format for {selectedCountry?.name}: {selectedCountry?.postalFormat}</p>
+                        <p className="text-xs mt-1">Example: {selectedCountry?.example}</p>
                       </div>
                     </div>
                   )}
                   
                   {selectedCountry && (
-                    <p className="mt-1 text-xs text-gray-500">
-                      Format: {selectedCountry.postalFormat}
-                    </p>
+                    <div className="mt-1 space-y-1">
+                      <p className="text-xs text-gray-500">
+                        Format: {selectedCountry.postalFormat}
+                      </p>
+                      <p className="text-xs text-blue-600">
+                        💡 City and location details will be automatically loaded when you enter a valid postal code
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
