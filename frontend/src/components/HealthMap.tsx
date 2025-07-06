@@ -101,8 +101,10 @@ const HealthMap: React.FC = () => {
         <div className="md:col-span-2 bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="h-96 w-full">
             <MapContainer
-              center={[30, 0]} // Global center
-              zoom={2}
+              center={[20, 0]} // World center
+              zoom={1}
+              minZoom={1}
+              maxZoom={18}
               style={{ height: '100%', width: '100%' }}
             >
               <TileLayer
