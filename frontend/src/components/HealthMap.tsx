@@ -101,8 +101,8 @@ const HealthMap: React.FC = () => {
         <div className="md:col-span-2 bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="h-96 w-full">
             <MapContainer
-              center={[20, 0]} // World center
-              zoom={1}
+              center={[39.8283, -98.5795]} // USA center
+              zoom={4}
               minZoom={1}
               maxZoom={18}
               style={{ height: '100%', width: '100%' }}
