@@ -6,6 +6,14 @@ interface Env {
   FRONTEND_URL: string;
 }
 
+// Cloudflare Workers types
+declare global {
+  interface ExecutionContext {
+    waitUntil(promise: Promise<any>): void;
+    passThroughOnException(): void;
+  }
+}
+
 // CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,12 +23,13 @@ const corsHeaders = {
 };
 
 export default {
-  async fetch(request: Request, env: Env, ctx: any): Promise<Response> {
-    const url = new URL(request.url);
-    const path = url.pathname;
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    try {
+      const url = new URL(request.url);
+      const path = url.pathname;
 
-    // Initialize Supabase client
-    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
+      // Initialize Supabase client
+      const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
 
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
@@ -89,6 +98,22 @@ export default {
         },
       }
     );
+    } catch (error) {
+      console.error('Worker error:', error);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Internal server error',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }),
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          },
+        }
+      );
+    }
   },
 };
 

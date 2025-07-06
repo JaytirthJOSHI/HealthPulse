@@ -45,4 +45,4 @@ This document outlines the plan to integrate public health data from the CDC's P
 - [ ] Deploy the updated backend worker to Cloudflare.
 - [ ] Configure the cron trigger for the new data fetching route.
 - [ ] Test the entire flow from data fetching to frontend display.
-- [ ] Monitor for any API rate limiting or data usage issues. 
+- [ ] Monitor for any API rate limiting or data usage issues.
