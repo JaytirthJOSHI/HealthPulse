@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import { useSupabase } from '../contexts/SupabaseContext';
 import { useRealTime } from '../contexts/RealTimeContext';
 import { MapDataPoint, SymptomReport } from '../types';
-import { Activity, Users, AlertTriangle, Calendar, TrendingUp } from 'lucide-react';
+import { Activity, Users, AlertTriangle, TrendingUp } from 'lucide-react';
 import WHOStats from './WHOStats';
 
 // Import Leaflet CSS
@@ -15,7 +15,7 @@ const HealthMap: React.FC = () => {
   const [mapData, setMapData] = useState<MapDataPoint[]>([]);
   const [aggregates, setAggregates] = useState<any[]>([]);
   const [locationReports, setLocationReports] = useState<SymptomReport[]>([]);
-  const [timeFilter, setTimeFilter] = useState<number>(7); // Days to show
+  const [timeFilter] = useState<number>(7); // Days to show
 
   // Convert reports to map data points with time filtering
   useEffect(() => {

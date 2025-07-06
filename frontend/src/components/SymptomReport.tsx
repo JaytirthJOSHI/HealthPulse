@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSupabase } from '../contexts/SupabaseContext';
-import { useRealTime } from '../contexts/RealTimeContext';
+
 import { SymptomReport as SymptomReportType, HealthTip } from '../types';
 import { Activity, MapPin, User, AlertTriangle, CheckCircle, Heart, Loader2, Check, X } from 'lucide-react';
 
