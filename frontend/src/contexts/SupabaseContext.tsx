@@ -72,49 +72,54 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        // Load recent reports
-        const { data: reportsData, error: reportsError } = await supabase
-          .from('symptom_reports')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(100);
+        // Load recent reports from API
+        const reportsResponse = await fetch(`${API_BASE_URL}/api/reports`);
+        if (!reportsResponse.ok) throw new Error('Failed to fetch reports');
+        const reportsData = await reportsResponse.json();
 
-        if (reportsError) throw reportsError;
+        // Load health tips from API
+        const tipsResponse = await fetch(`${API_BASE_URL}/api/health-tips`);
+        if (!tipsResponse.ok) throw new Error('Failed to fetch health tips');
+        const tipsData = await tipsResponse.json();
 
-        // Load health tips
-        const { data: tipsData, error: tipsError } = await supabase
-          .from('health_tips')
-          .select('*');
+        // Load diseases from API
+        const diseasesResponse = await fetch(`${API_BASE_URL}/api/diseases`);
+        if (!diseasesResponse.ok) throw new Error('Failed to fetch diseases');
+        const diseasesData = await diseasesResponse.json();
 
-        if (tipsError) throw tipsError;
+        // Load regions from API
+        const regionsResponse = await fetch(`${API_BASE_URL}/api/regions`);
+        if (!regionsResponse.ok) throw new Error('Failed to fetch regions');
+        const regionsData = await regionsResponse.json();
 
-        // Load diseases
-        const { data: diseasesData, error: diseasesError } = await supabase
-          .from('diseases')
-          .select('*');
+        // Transform reports data to match frontend types
+        const transformedReports = (reportsData || []).map((report: any) => ({
+          id: report.id,
+          nickname: report.nickname,
+          country: report.country,
+          pinCode: report.pin_code,
+          symptoms: report.symptoms,
+          illnessType: report.illness_type,
+          severity: report.severity,
+          createdAt: report.created_at,
+          latitude: report.latitude,
+          longitude: report.longitude,
+        }));
 
-        if (diseasesError) throw diseasesError;
-
-        // Load regions
-        const { data: regionsData, error: regionsError } = await supabase
-          .from('regions')
-          .select('*');
-
-        if (regionsError) throw regionsError;
-
-        setReports(reportsData || []);
+        setReports(transformedReports);
         setHealthTips(tipsData || []);
         setDiseases(diseasesData || []);
         setRegions(regionsData || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load data');
+        console.error('Error loading data:', err);
       } finally {
         setLoading(false);
       }
     };
 
     loadInitialData();
-  }, [supabase]);
+  }, []);
 
   const addReport = async (report: Omit<SymptomReport, 'id' | 'createdAt'>) => {
     try {
@@ -221,17 +226,14 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
   };
 
   const getHealthAggregates = async (): Promise<HealthAggregate[]> => {
-    if (!supabase) throw new Error('Supabase not initialized');
-
     try {
-      const { data, error } = await supabase
-        .from('health_aggregates')
-        .select('*');
-
-      if (error) throw error;
+      const response = await fetch(`${API_BASE_URL}/api/health-aggregates`);
+      if (!response.ok) throw new Error('Failed to fetch health aggregates');
+      const data = await response.json();
       return data || [];
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to get health aggregates');
+      console.error('Error fetching health aggregates:', err);
       return [];
     }
   };

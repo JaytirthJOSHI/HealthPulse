@@ -87,6 +87,10 @@ export default {
       return await handleGetWHOData();
     }
 
+    if (path === '/api/health-aggregates' && request.method === 'GET') {
+      return await handleGetHealthAggregates(supabase);
+    }
+
     // 404 for unknown routes
     return new Response(
       JSON.stringify({ error: 'Not found' }),
@@ -372,6 +376,72 @@ async function handleGetWHOData(): Promise<Response> {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return new Response(
       JSON.stringify({ error: 'Failed to get WHO data', details: errorMessage }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleGetHealthAggregates(supabase: any): Promise<Response> {
+  try {
+    // Get all reports to calculate aggregates
+    const { data: reports, error: reportsError } = await supabase
+      .from('symptom_reports')
+      .select('*');
+
+    if (reportsError) throw reportsError;
+
+    const reportsData = reports || [];
+    
+    // Calculate aggregates
+    const totalReports = reportsData.length;
+    
+    // Count unique pin codes
+    const uniquePinCodes = new Set(reportsData.map((r: any) => r.pin_code)).size;
+    
+    // Count reports in last 24 hours
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const reportsLast24h = reportsData.filter((r: any) => 
+      new Date(r.created_at) > oneDayAgo
+    ).length;
+    
+    // Find most reported symptom
+    const allSymptoms = reportsData.flatMap((r: any) => r.symptoms || []);
+    const symptomCounts: { [key: string]: number } = {};
+    allSymptoms.forEach((symptom: string) => {
+      symptomCounts[symptom] = (symptomCounts[symptom] || 0) + 1;
+    });
+    const mostReportedSymptom = Object.keys(symptomCounts).length > 0 
+      ? Object.entries(symptomCounts).reduce((a, b) => a[1] > b[1] ? a : b)[0]
+      : 'N/A';
+
+    const aggregates = [
+      { metric: 'total_reports', value: totalReports },
+      { metric: 'active_pin_codes', value: uniquePinCodes },
+      { metric: 'reports_in_last_24h', value: reportsLast24h },
+      { metric: 'most_reported_symptom', value: mostReportedSymptom }
+    ];
+
+    return new Response(
+      JSON.stringify(aggregates),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error calculating health aggregates:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to get health aggregates' }),
       {
         status: 500,
         headers: {
