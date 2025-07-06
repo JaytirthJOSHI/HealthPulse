@@ -39,8 +39,8 @@ const Header: React.FC = () => {
           <Link to="/" className="flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded">
             <img src="https://health-sathi.org/images/logo/healthsathi-logo.svg" alt="HealthSathi Logo" className="w-8 h-8" />
             <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">HealthPulse</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Lite</p>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">HealthSathi's Pulse</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">App</p>
             </div>
           </Link>
 

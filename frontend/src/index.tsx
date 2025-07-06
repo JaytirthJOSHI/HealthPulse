@@ -1,15 +1,20 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { HelmetProvider } from 'react-helmet-async';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+
+const HelmetProviderWrapper = HelmetProvider as any;
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
 root.render(
   <React.StrictMode>
-    <App />
+    <HelmetProviderWrapper>
+      <App />
+    </HelmetProviderWrapper>
   </React.StrictMode>
 );
 

@@ -74,6 +74,10 @@ export default {
       return await handleGetRegions(supabase);
     }
 
+    if (path === '/api/who-data' && request.method === 'GET') {
+      return await handleGetWHOData();
+    }
+
     // 404 for unknown routes
     return new Response(
       JSON.stringify({ error: 'Not found' }),
@@ -302,6 +306,47 @@ async function handleGetRegions(supabase: any): Promise<Response> {
   } catch (error) {
     return new Response(
       JSON.stringify({ error: 'Failed to get regions' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleGetWHOData(): Promise<Response> {
+  try {
+    const whoApiUrl = 'https://ghoapi.azureedge.net/api/WHOSIS_000001'; // Life expectancy at birth
+    const response = await fetch(whoApiUrl, {
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`WHO API request failed with status ${response.status}`);
+    }
+
+    const data = await response.json() as { value: any[] };
+
+    return new Response(
+      JSON.stringify(data.value),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error fetching WHO data:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    return new Response(
+      JSON.stringify({ error: 'Failed to get WHO data', details: errorMessage }),
       {
         status: 500,
         headers: {

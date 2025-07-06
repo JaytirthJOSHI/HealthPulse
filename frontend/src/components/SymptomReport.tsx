@@ -27,7 +27,6 @@ const countries = [
 const SymptomReport: React.FC = () => {
   const navigate = useNavigate();
   const { addReport, getHealthTip } = useSupabase();
-  const { sendMessage } = useRealTime();
   
   const [formData, setFormData] = useState({
     nickname: '',
@@ -123,12 +122,6 @@ const SymptomReport: React.FC = () => {
       };
 
       await addReport(report);
-
-      // Send real-time update
-      sendMessage({
-        type: 'new_report',
-        data: report
-      });
 
       // Get health tip
       const tip = await getHealthTip(formData.symptoms);

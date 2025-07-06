@@ -1,4 +1,4 @@
-# HealthPulse Lite
+# HealthSathi's Pulse App
 
 A real-time collaborative health heatmap platform where users can anonymously report symptoms and see live health trends in their local area.
 
@@ -6,11 +6,12 @@ A real-time collaborative health heatmap platform where users can anonymously re
 
 - **Anonymous Symptom Reporting**: Report symptoms with optional nickname
 - **Location-Based Heatmap**: View health trends by country and PIN code
-- **Real-Time Updates**: Live updates using WebSockets
+- **Real-Time Updates**: Live updates using Supabase real-time subscriptions
 - **Interactive Map**: Powered by Leaflet.js with heatmap visualization
-- **Health Tips**: Instant advice from Dr. Fatafat based on symptoms
+- **Health Tips**: Instant advice based on symptoms and location
 - **Mobile-Friendly**: Responsive design for all devices
 - **Privacy-First**: No exact location tracking, only area-based data
+- **Exponential Decay Analysis**: Time-based health trend visualization
 
 ## 🛠️ Tech Stack
 
@@ -60,7 +61,8 @@ Create `.env` files in both frontend and backend directories with your Supabase 
 2. Enter your country and PIN code
 3. Report symptoms anonymously
 4. View the live heatmap of health trends
-5. Get instant health tips from Dr. Fatafat
+5. Get instant health tips based on your symptoms
+6. Explore time-based trend analysis
 
 ## 🔒 Privacy
 

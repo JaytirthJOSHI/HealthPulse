@@ -1,6 +1,6 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { createServer } from 'http';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -39,7 +39,7 @@ app.use(morgan('combined'));
 app.use(express.json());
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', (req: Request, res: Response) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
@@ -48,11 +48,11 @@ app.get('/health', (req, res) => {
 });
 
 // Socket.io connection handling
-io.on('connection', (socket) => {
+io.on('connection', (socket: Socket) => {
   console.log(`Client connected: ${socket.id}`);
 
   // Handle new symptom reports
-  socket.on('new_report', async (data) => {
+  socket.on('new_report', async (data: any) => {
     try {
       console.log('New report received:', data);
 
@@ -93,7 +93,7 @@ io.on('connection', (socket) => {
   });
 
   // Handle map data requests
-  socket.on('get_map_data', async (data) => {
+  socket.on('get_map_data', async (data: any) => {
     try {
       const { data: reports, error } = await supabase
         .from('symptom_reports')
@@ -116,7 +116,7 @@ io.on('connection', (socket) => {
   });
 
   // Handle health tip requests
-  socket.on('get_health_tip', async (data) => {
+  socket.on('get_health_tip', async (data: { symptoms: string[] }) => {
     try {
       const { symptoms } = data;
       
@@ -159,13 +159,13 @@ io.on('connection', (socket) => {
 });
 
 // Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
 // 404 handler
-app.use((req, res) => {
+app.use((req: Request, res: Response) => {
   res.status(404).json({ error: 'Not found' });
 });
 
@@ -175,4 +175,4 @@ server.listen(PORT, () => {
   console.log(`🚀 HealthPulse Backend server running on port ${PORT}`);
   console.log(`📡 Socket.io server ready for connections`);
   console.log(`🔗 Health check available at http://localhost:${PORT}/health`);
-}); 
+});

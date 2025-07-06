@@ -1,10 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabaseClient } from './SupabaseContext';
-import { RealTimeMessage, SymptomReport } from '../types';
+import { SymptomReport } from '../types';
 
 interface RealTimeContextType {
   connected: boolean;
-  sendMessage: (message: RealTimeMessage) => void;
   reports: SymptomReport[];
 }
 
@@ -97,39 +96,10 @@ export const RealTimeProvider: React.FC<RealTimeProviderProps> = ({ children }) 
         supabase.removeChannel(channel);
       }
     };
-  }, [supabase]); // Add supabase back to dependencies
-
-  const sendMessage = async (message: RealTimeMessage) => {
-    if (!connected) {
-      console.warn('Not connected to real-time service');
-      return;
-    }
-
-    try {
-      switch (message.type) {
-        case 'new_report':
-          // Reports are handled via REST API, not real-time
-          console.log('New report should be sent via REST API');
-          break;
-        case 'update_map':
-          // You can implement map updates via Supabase real-time if needed
-          console.log('Map update:', message.data);
-          break;
-        case 'health_tip':
-          // Health tips can be handled via REST API
-          console.log('Health tip request:', message.data);
-          break;
-        default:
-          console.log('Unknown message type:', message.type);
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-    }
-  };
+  }, [supabase]);
 
   const value: RealTimeContextType = {
     connected,
-    sendMessage,
     reports,
   };
 
@@ -139,3 +109,119 @@ export const RealTimeProvider: React.FC<RealTimeProviderProps> = ({ children }) 
     </RealTimeContext.Provider>
   );
 }; 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+           
