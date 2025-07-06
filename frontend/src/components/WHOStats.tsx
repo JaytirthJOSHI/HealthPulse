@@ -31,8 +31,9 @@ const WHOStats: React.FC = () => {
         const data: WHOStat[] = await response.json();
         
         // For this example, let's just show the most recent data for a few countries
+        const latestYear = Math.max(...data.map(d => d.TimeDim));
         const filteredData = data.filter(d => 
-          ['IND', 'USA', 'CHN', 'JPN', 'DEU'].includes(d.SpatialDim) && d.TimeDim === 2019
+          ['IND', 'USA', 'CHN', 'NGA', 'PAK', 'IDN'].includes(d.SpatialDim) && d.TimeDim === latestYear
         );
         
         setStats(filteredData);
@@ -57,10 +58,10 @@ const WHOStats: React.FC = () => {
   return (
     <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
       <h2 className="text-2xl font-bold text-gray-900 mb-4">
-        WHO Data: Life Expectancy at Birth (2019)
+        WHO Data: Reported Measles Cases
       </h2>
       <p className="text-gray-600 mb-4">
-        Official data from the World Health Organization's Global Health Observatory. This shows a comparison of life expectancy for both sexes.
+        Official data from the World Health Organization's Global Health Observatory. This shows the number of reported measles cases in the most recent year available.
       </p>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
@@ -70,10 +71,10 @@ const WHOStats: React.FC = () => {
                 Country
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Sex
+                Year
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Life Expectancy (Years)
+                Reported Cases
               </th>
             </tr>
           </thead>
@@ -84,10 +85,10 @@ const WHOStats: React.FC = () => {
                   {stat.SpatialDim}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {stat.Dim1 === 'MLE' ? 'Male' : stat.Dim1 === 'FMLE' ? 'Female' : 'Both'}
+                  {stat.TimeDim}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {parseFloat(stat.Value).toFixed(2)}
+                  {parseInt(stat.Value, 10).toLocaleString()}
                 </td>
               </tr>
             ))}

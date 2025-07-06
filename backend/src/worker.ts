@@ -319,7 +319,7 @@ async function handleGetRegions(supabase: any): Promise<Response> {
 
 async function handleGetWHOData(): Promise<Response> {
   try {
-    const whoApiUrl = 'https://ghoapi.azureedge.net/api/WHOSIS_000001'; // Life expectancy at birth
+    const whoApiUrl = 'https://ghoapi.azureedge.net/api/WHS3_62'; // Reported number of measles cases
     const response = await fetch(whoApiUrl, {
       headers: {
         'Accept': 'application/json'
