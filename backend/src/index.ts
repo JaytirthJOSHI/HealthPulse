@@ -120,15 +120,175 @@ app.get('/api/health-aggregates', async (req: Request, res: Response): Promise<v
       .slice(0, 5)
       .map(([type, count]) => ({ type, count }));
 
+    // Get unique countries
+    const { data: countryData, error: countryError } = await supabase
+      .from('symptom_reports')
+      .select('country')
+      .not('country', 'is', null);
+
+    if (countryError) {
+      console.error('Error fetching country data:', countryError);
+      res.status(500).json({ error: 'Failed to fetch health aggregates' });
+      return;
+    }
+
+    const uniqueCountries = new Set((countryData || []).map((report: any) => report.country)).size;
+
+    // Get most reported illness
+    const mostReportedIllness = topIllnesses.length > 0 ? topIllnesses[0].type : 'None';
+
     const aggregates = [
       { metric: 'total_reports', value: totalReports || 0 },
+      { metric: 'total_users', value: totalReports || 0 }, // Using total reports as user count for now
       { metric: 'reports_in_last_24h', value: reports24h || 0 },
+      { metric: 'active_countries', value: uniqueCountries },
+      { metric: 'most_reported_illness', value: mostReportedIllness },
       { metric: 'top_illnesses', value: topIllnesses }
     ];
 
     res.json(aggregates);
   } catch (error) {
     console.error('Error in /api/health-aggregates:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Add missing endpoints
+app.get('/api/who-data', async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Mock WHO data for measles cases
+    const whoData = [
+      { Id: 1, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'IND', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '12500' },
+      { Id: 2, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'USA', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '1200' },
+      { Id: 3, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'CHN', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '8900' },
+      { Id: 4, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'NGA', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '15600' },
+      { Id: 5, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'PAK', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '9800' },
+      { Id: 6, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'IDN', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '6700' }
+    ];
+    
+    res.json(whoData);
+  } catch (error) {
+    console.error('Error in /api/who-data:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/health-tips', async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Mock health tips data
+    const healthTips = [
+      {
+        id: 1,
+        title: 'Stay Hydrated',
+        content: 'Drink at least 8 glasses of water daily to maintain good health.',
+        category: 'general',
+        symptoms: ['dehydration', 'fatigue'],
+        severity: 'low'
+      },
+      {
+        id: 2,
+        title: 'Respiratory Health',
+        content: 'If you have cough and fever, rest well and monitor your symptoms.',
+        category: 'respiratory',
+        symptoms: ['cough', 'fever'],
+        severity: 'medium'
+      },
+      {
+        id: 3,
+        title: 'Emergency Alert',
+        content: 'Chest pain and shortness of breath require immediate medical attention.',
+        category: 'emergency',
+        symptoms: ['chest pain', 'shortness of breath'],
+        severity: 'high'
+      }
+    ];
+    
+    res.json(healthTips);
+  } catch (error) {
+    console.error('Error in /api/health-tips:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/diseases', async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Mock diseases data
+    const diseases = [
+      { id: 1, name: 'Common Cold', symptoms: ['runny nose', 'sore throat', 'cough'], severity: 'low' },
+      { id: 2, name: 'Influenza', symptoms: ['fever', 'body aches', 'fatigue'], severity: 'medium' },
+      { id: 3, name: 'COVID-19', symptoms: ['fever', 'cough', 'loss of taste'], severity: 'high' },
+      { id: 4, name: 'Dengue', symptoms: ['high fever', 'headache', 'joint pain'], severity: 'high' }
+    ];
+    
+    res.json(diseases);
+  } catch (error) {
+    console.error('Error in /api/diseases:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/regions', async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Mock regions data
+    const regions = [
+      { id: 1, name: 'North America', countries: ['USA', 'Canada', 'Mexico'] },
+      { id: 2, name: 'South Asia', countries: ['India', 'Pakistan', 'Bangladesh'] },
+      { id: 3, name: 'Europe', countries: ['UK', 'Germany', 'France'] },
+      { id: 4, name: 'Africa', countries: ['Nigeria', 'South Africa', 'Kenya'] }
+    ];
+    
+    res.json(regions);
+  } catch (error) {
+    console.error('Error in /api/regions:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/reports', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { nickname, country, pinCode, symptoms, illnessType, severity, latitude, longitude } = req.body;
+
+    // Validate required fields
+    if (!nickname || !country || !symptoms) {
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
+    }
+
+    // Store in Supabase
+    const { data, error } = await supabase
+      .from('symptom_reports')
+      .insert([{
+        nickname,
+        country,
+        pin_code: pinCode,
+        symptoms,
+        illness_type: illnessType,
+        severity,
+        latitude,
+        longitude,
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error storing report:', error);
+      res.status(500).json({ error: 'Failed to store report' });
+      return;
+    }
+
+    res.json({ 
+      success: true, 
+      data: {
+        ...data,
+        id: data.id,
+        pinCode: data.pin_code,
+        illnessType: data.illness_type,
+        createdAt: data.created_at,
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in POST /api/reports:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
