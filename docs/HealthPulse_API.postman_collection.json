@@ -1,0 +1,335 @@
+{
+  "info": {
+    "name": "HealthPulse API",
+    "description": "Comprehensive health monitoring platform API with real-time disease tracking, AI-powered consultations, and predictive analytics.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://healthpulse-api.healthsathi.workers.dev",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "Symptom Reports",
+      "item": [
+        {
+          "name": "Get All Reports",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reports"]
+            }
+          }
+        },
+        {
+          "name": "Create Report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nickname\": \"JohnDoe\",\n  \"country\": \"United States\",\n  \"pinCode\": \"12345\",\n  \"symptoms\": [\"Fever\", \"Cough\"],\n  \"illnessType\": \"flu\",\n  \"severity\": \"moderate\",\n  \"latitude\": 40.7128,\n  \"longitude\": -74.0060,\n  \"phoneNumber\": \"+1234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/reports",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reports"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Data",
+      "item": [
+        {
+          "name": "Get Health Aggregates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health-aggregates",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health-aggregates"]
+            }
+          }
+        },
+        {
+          "name": "Get WHO Data",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/who-data",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "who-data"]
+            }
+          }
+        },
+        {
+          "name": "Get Health Tips",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health-tips",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health-tips"]
+            }
+          }
+        },
+        {
+          "name": "Get Diseases",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/diseases",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "diseases"]
+            }
+          }
+        },
+        {
+          "name": "Get Regions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/regions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "regions"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Phone AI Integration",
+      "item": [
+        {
+          "name": "Voice Symptom Report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"+1234567890\",\n  \"voiceMessage\": \"I have a fever and cough\",\n  \"location\": {\n    \"latitude\": 40.7128,\n    \"longitude\": -74.0060,\n    \"country\": \"United States\"\n  },\n  \"timestamp\": \"2024-01-15T10:30:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/phone-ai/voice-report",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "phone-ai", "voice-report"]
+            }
+          }
+        },
+        {
+          "name": "Health Consultation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"+1234567890\",\n  \"symptoms\": [\"Fever\", \"Cough\", \"Fatigue\"],\n  \"duration\": \"3 days\",\n  \"severity\": \"moderate\",\n  \"medicalHistory\": \"No chronic conditions\",\n  \"currentMedications\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/phone-ai/health-consultation",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "phone-ai", "health-consultation"]
+            }
+          }
+        },
+        {
+          "name": "Send Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"+1234567890\",\n  \"message\": \"Your health check is due. Please call for consultation.\",\n  \"type\": \"reminder\",\n  \"priority\": \"normal\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/phone-ai/send-notification",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "phone-ai", "send-notification"]
+            }
+          }
+        },
+        {
+          "name": "Emergency Alert",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"+1234567890\",\n  \"emergencyType\": \"severe_symptoms\",\n  \"symptoms\": [\"Chest pain\", \"Difficulty breathing\"],\n  \"location\": {\n    \"latitude\": 40.7128,\n    \"longitude\": -74.0060,\n    \"address\": \"123 Main St, New York, NY\"\n  },\n  \"severity\": \"critical\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/phone-ai/emergency-alert",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "phone-ai", "emergency-alert"]
+            }
+          }
+        },
+        {
+          "name": "Get Phone Health Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/phone-ai/health-status?phoneNumber=+1234567890",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "phone-ai", "health-status"],
+              "query": [
+                {
+                  "key": "phoneNumber",
+                  "value": "+1234567890"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Predictive Analytics",
+      "item": [
+        {
+          "name": "Outbreak Prediction",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/outbreak-prediction?region=North%20America&disease=flu&timeframe=30d",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "outbreak-prediction"],
+              "query": [
+                {
+                  "key": "region",
+                  "value": "North America"
+                },
+                {
+                  "key": "disease",
+                  "value": "flu"
+                },
+                {
+                  "key": "timeframe",
+                  "value": "30d"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Health Trends",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/health-trends?metric=flu_cases&period=30d",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "health-trends"],
+              "query": [
+                {
+                  "key": "metric",
+                  "value": "flu_cases"
+                },
+                {
+                  "key": "period",
+                  "value": "30d"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Risk Assessment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"age\": 35,\n  \"gender\": \"male\",\n  \"location\": {\n    \"country\": \"United States\",\n    \"region\": \"Northeast\"\n  },\n  \"symptoms\": [\"Fever\", \"Cough\"],\n  \"medicalHistory\": [\"Asthma\"],\n  \"lifestyle\": {\n    \"smoking\": false,\n    \"exercise\": \"moderate\",\n    \"diet\": \"balanced\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/risk-assessment",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "risk-assessment"]
+            }
+          }
+        },
+        {
+          "name": "Seasonal Patterns",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/seasonal-patterns?disease=flu&region=North%20America",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "seasonal-patterns"],
+              "query": [
+                {
+                  "key": "disease",
+                  "value": "flu"
+                },
+                {
+                  "key": "region",
+                  "value": "North America"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+} 
