@@ -205,11 +205,7 @@ async function handleCreateReport(request: Request): Promise<Response> {
 async function handleGetReports(): Promise<Response> {
   try {
     return new Response(
-      JSON.stringify({
-        reports: symptomReports,
-        total: symptomReports.length,
-        lastUpdated: new Date().toISOString()
-      }),
+      JSON.stringify(symptomReports),
       {
         status: 200,
         headers: {
@@ -1354,4 +1350,190 @@ async function handleGetRegions(): Promise<Response> {
       }
     );
   }
+}
+
+// DEMO DATA GENERATION FOR DEVELOPMENT
+function generateDemoReports() {
+  // Global locations with coordinates for comprehensive demo
+  const globalLocations = [
+    // North America
+    { country: 'US', pinCode: '10001', city: 'New York', latitude: 40.7128, longitude: -74.0060 },
+    { country: 'US', pinCode: '90001', city: 'Los Angeles', latitude: 34.0522, longitude: -118.2437 },
+    { country: 'US', pinCode: '60601', city: 'Chicago', latitude: 41.8781, longitude: -87.6298 },
+    { country: 'US', pinCode: '77001', city: 'Houston', latitude: 29.7604, longitude: -95.3698 },
+    { country: 'US', pinCode: '33101', city: 'Miami', latitude: 25.7617, longitude: -80.1918 },
+    { country: 'Canada', pinCode: 'M5V', city: 'Toronto', latitude: 43.6532, longitude: -79.3832 },
+    { country: 'Canada', pinCode: 'V6C', city: 'Vancouver', latitude: 49.2827, longitude: -123.1207 },
+    
+    // Europe
+    { country: 'UK', pinCode: 'SW1A', city: 'London', latitude: 51.5074, longitude: -0.1278 },
+    { country: 'Germany', pinCode: '10115', city: 'Berlin', latitude: 52.5200, longitude: 13.4050 },
+    { country: 'France', pinCode: '75001', city: 'Paris', latitude: 48.8566, longitude: 2.3522 },
+    { country: 'Spain', pinCode: '28001', city: 'Madrid', latitude: 40.4168, longitude: -3.7038 },
+    { country: 'Italy', pinCode: '00100', city: 'Rome', latitude: 41.9028, longitude: 12.4964 },
+    
+    // Asia
+    { country: 'Japan', pinCode: '100-0001', city: 'Tokyo', latitude: 35.6762, longitude: 139.6503 },
+    { country: 'South Korea', pinCode: '100-011', city: 'Seoul', latitude: 37.5665, longitude: 126.9780 },
+    { country: 'China', pinCode: '100000', city: 'Beijing', latitude: 39.9042, longitude: 116.4074 },
+    { country: 'India', pinCode: '400001', city: 'Mumbai', latitude: 19.0760, longitude: 72.8777 },
+    { country: 'India', pinCode: '110001', city: 'New Delhi', latitude: 28.6139, longitude: 77.2090 },
+    { country: 'Singapore', pinCode: '018956', city: 'Singapore', latitude: 1.3521, longitude: 103.8198 },
+    
+    // Australia & Oceania
+    { country: 'Australia', pinCode: '2000', city: 'Sydney', latitude: -33.8688, longitude: 151.2093 },
+    { country: 'Australia', pinCode: '3000', city: 'Melbourne', latitude: -37.8136, longitude: 144.9631 },
+    
+    // South America
+    { country: 'Brazil', pinCode: '20000-000', city: 'Rio de Janeiro', latitude: -22.9068, longitude: -43.1729 },
+    { country: 'Brazil', pinCode: '01310-100', city: 'Sao Paulo', latitude: -23.5505, longitude: -46.6333 },
+    { country: 'Argentina', pinCode: '1000', city: 'Buenos Aires', latitude: -34.6118, longitude: -58.3960 },
+    
+    // Africa
+    { country: 'South Africa', pinCode: '2000', city: 'Johannesburg', latitude: -26.2041, longitude: 28.0473 },
+    { country: 'Nigeria', pinCode: '100001', city: 'Lagos', latitude: 6.5244, longitude: 3.3792 },
+    { country: 'Kenya', pinCode: '00100', city: 'Nairobi', latitude: -1.2921, longitude: 36.8219 },
+    { country: 'Egypt', pinCode: '11511', city: 'Cairo', latitude: 30.0444, longitude: 31.2357 }
+  ];
+
+  // Comprehensive disease patterns for global demo
+  const globalDiseasePatterns: Record<string, {
+    baseRate: number;
+    seasonalMultiplier: number;
+    symptoms: string[];
+    severity: string[];
+    global?: boolean;
+    tropical?: boolean;
+    developing?: boolean;
+  }> = {
+    flu: {
+      baseRate: 0.4,
+      seasonalMultiplier: 1.8,
+      symptoms: ['Fever', 'Cough', 'Sore throat', 'Body aches', 'Fatigue', 'Headache'],
+      severity: ['mild', 'moderate', 'severe'],
+      global: true
+    },
+    covid: {
+      baseRate: 0.25,
+      seasonalMultiplier: 1.2,
+      symptoms: ['Fever', 'Cough', 'Fatigue', 'Loss of taste', 'Shortness of breath', 'Body aches'],
+      severity: ['mild', 'moderate', 'severe'],
+      global: true
+    },
+    dengue: {
+      baseRate: 0.3,
+      seasonalMultiplier: 2.5,
+      symptoms: ['High fever', 'Severe headache', 'Joint pain', 'Muscle pain', 'Rash', 'Nausea'],
+      severity: ['mild', 'moderate', 'severe'],
+      tropical: true
+    },
+    malaria: {
+      baseRate: 0.2,
+      seasonalMultiplier: 3.0,
+      symptoms: ['Cyclic fever', 'Chills', 'Sweating', 'Headache', 'Nausea', 'Fatigue'],
+      severity: ['mild', 'moderate', 'severe'],
+      tropical: true
+    },
+    typhoid: {
+      baseRate: 0.15,
+      seasonalMultiplier: 2.0,
+      symptoms: ['High fever', 'Headache', 'Abdominal pain', 'Diarrhea', 'Loss of appetite'],
+      severity: ['mild', 'moderate', 'severe'],
+      developing: true
+    },
+    unknown: {
+      baseRate: 0.08,
+      seasonalMultiplier: 1.0,
+      symptoms: ['Fever', 'Fatigue', 'Headache', 'Body aches', 'Nausea'],
+      severity: ['mild', 'moderate'],
+      global: true
+    }
+  };
+
+  // Global nicknames for anonymous reporting
+  const globalNicknames = [
+    'HealthWatcher', 'WellnessSeeker', 'CommunityCare', 'HealthGuard', 'WellnessBuddy',
+    'HealthTracker', 'CommunityHealth', 'WellnessGuide', 'HealthMonitor', 'WellnessPartner',
+    'HealthHelper', 'CommunityWell', 'WellnessFriend', 'HealthSupporter', 'WellnessAdvocate',
+    'GlobalHealth', 'WorldWellness', 'HealthObserver', 'WellnessTracker', 'CommunityMonitor'
+  ];
+
+  function randomFrom(arr: any[]) { return arr[Math.floor(Math.random() * arr.length)]; }
+  
+  function getRandomDate() {
+    const now = new Date();
+    const daysAgo = Math.floor(Math.random() * 30);
+    const hoursAgo = Math.floor(Math.random() * 24);
+    const minutesAgo = Math.floor(Math.random() * 60);
+    
+    const date = new Date(now);
+    date.setDate(date.getDate() - daysAgo);
+    date.setHours(date.getHours() - hoursAgo);
+    date.setMinutes(date.getMinutes() - minutesAgo);
+    
+    return date.toISOString();
+  }
+
+  function shouldDiseaseOccur(diseaseType: string, location: any) {
+    const pattern = globalDiseasePatterns[diseaseType as keyof typeof globalDiseasePatterns];
+    
+    if (pattern.global) return true;
+    
+    if (pattern.tropical) {
+      const absLat = Math.abs(location.latitude);
+      return absLat < 30; // Tropical regions
+    }
+    
+    if (pattern.developing) {
+      const developingCountries = ['India', 'Brazil', 'China', 'Indonesia', 'Philippines', 'Thailand', 'Vietnam', 'Malaysia', 'Nigeria', 'Kenya', 'Ghana', 'Egypt', 'Morocco', 'Peru', 'Colombia'];
+      return developingCountries.includes(location.country);
+    }
+    
+    return false;
+  }
+
+  const reports = [];
+  const now = new Date();
+  
+  // Generate data for each location and disease pattern
+  for (const location of globalLocations) {
+    for (const [diseaseType, pattern] of Object.entries(globalDiseasePatterns)) {
+      // Check if this disease should occur in this location
+      if (!shouldDiseaseOccur(diseaseType, location)) continue;
+      
+      // Calculate base number of reports for this location-disease combination
+      const baseReports = Math.floor(pattern.baseRate * 40); // Reduced for worker performance
+      
+      // Generate reports for the last 30 days
+      for (let day = 0; day < 30; day++) {
+        // Add some randomness and seasonal variation
+        const seasonalFactor = 1 + (pattern.seasonalMultiplier - 1) * Math.sin((day / 30) * Math.PI);
+        const decayedReports = Math.floor(baseReports * seasonalFactor * (0.3 + Math.random() * 0.7));
+        
+        for (let i = 0; i < decayedReports; i++) {
+          const report: any = {
+            id: `demo-${reports.length + 1}`,
+            nickname: randomFrom(globalNicknames),
+            country: location.country,
+            pin_code: location.pinCode,
+            symptoms: pattern.symptoms.slice(0, 2 + Math.floor(Math.random() * 4)), // 2-5 symptoms
+            illness_type: diseaseType,
+            severity: randomFrom(pattern.severity),
+            latitude: location.latitude + (Math.random() - 0.5) * 0.02, // Add some variation
+            longitude: location.longitude + (Math.random() - 0.5) * 0.02,
+            created_at: getRandomDate()
+          };
+          
+          reports.push(report);
+        }
+      }
+    }
+  }
+  
+  return reports;
+}
+
+// Populate demo data on startup (for development/demo)
+if (symptomReports.length === 0) {
+  symptomReports = generateDemoReports();
 }

@@ -105,6 +105,7 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
           latitude: report.latitude,
           longitude: report.longitude,
         }));
+        console.log('Transformed reports:', transformedReports.length, 'reports loaded');
 
         setReports(transformedReports);
         setHealthTips(tipsData || []);

@@ -25,6 +25,11 @@ const HealthMap: React.FC = () => {
   useEffect(() => {
     const filteredReports = reports.filter(report => {
         if (!report.latitude || !report.longitude) return false; // Ensure lat/lng exist
+        // For demo data, show all reports regardless of date
+        if (report.createdAt && report.createdAt.includes('1969')) {
+          return true;
+        }
+        // For real data, apply time filter
         const reportDate = new Date(report.createdAt);
         const timeDiff = new Date().getTime() - reportDate.getTime();
         return timeDiff / (1000 * 3600 * 24) <= timeFilter;
@@ -50,6 +55,7 @@ const HealthMap: React.FC = () => {
             reports: group
         };
     });
+    console.log('Map data points:', dataPoints.length, 'from', reports.length, 'reports');
     setMapData(dataPoints);
   }, [reports, timeFilter]);
 
@@ -110,7 +116,8 @@ const HealthMap: React.FC = () => {
           </div>
         )}
 
-        {!connected && (
+        {/* Real-time connection status - disabled for API-based data */}
+        {false && !connected && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
             <div className="flex items-center">
               <AlertTriangle className="w-5 h-5 text-yellow-600 mr-2" />
