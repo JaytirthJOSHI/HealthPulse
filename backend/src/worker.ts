@@ -71,6 +71,23 @@ export default {
         return await handleGetHealthAggregates();
       }
 
+      // Add missing endpoints
+      if (path === '/api/who-data' && request.method === 'GET') {
+        return await handleGetWHOData();
+      }
+
+      if (path === '/api/health-tips' && request.method === 'GET') {
+        return await handleGetHealthTips();
+      }
+
+      if (path === '/api/diseases' && request.method === 'GET') {
+        return await handleGetDiseases();
+      }
+
+      if (path === '/api/regions' && request.method === 'GET') {
+        return await handleGetRegions();
+      }
+
       // Phone AI Integration endpoints
       if (path === '/api/phone-ai/voice-report' && request.method === 'POST') {
         return await handleVoiceSymptomReport(request);
@@ -219,30 +236,44 @@ async function handleGetReports(): Promise<Response> {
 async function handleGetHealthAggregates(): Promise<Response> {
   try {
     const totalReports = symptomReports.length;
-    const recentReports = symptomReports.filter(r => {
+    
+    // Get reports in last 24 hours
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const reports24h = symptomReports.filter(r => {
       const reportDate = new Date(r.created_at);
-      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      return reportDate > weekAgo;
-    });
+      return reportDate > twentyFourHoursAgo;
+    }).length;
 
-    const severityCounts = symptomReports.reduce((acc: any, report: any) => {
-      acc[report.severity] = (acc[report.severity] || 0) + 1;
-      return acc;
-    }, {});
+    // Get unique countries
+    const uniqueCountries = new Set(symptomReports.map((report: any) => report.country)).size;
 
+    // Get illness type distribution
     const illnessCounts = symptomReports.reduce((acc: any, report: any) => {
-      acc[report.illness_type] = (acc[report.illness_type] || 0) + 1;
+      const type = report.illness_type || 'Unknown';
+      acc[type] = (acc[type] || 0) + 1;
       return acc;
     }, {});
+
+    // Get top illness types
+    const topIllnesses = Object.entries(illnessCounts)
+      .sort(([,a]: any, [,b]: any) => b - a)
+      .slice(0, 5)
+      .map(([type, count]) => ({ type, count }));
+
+    // Get most reported illness
+    const mostReportedIllness = topIllnesses.length > 0 ? topIllnesses[0].type : 'None';
+
+    const aggregates = [
+      { metric: 'total_reports', value: totalReports },
+      { metric: 'total_users', value: totalReports }, // Using total reports as user count for now
+      { metric: 'reports_in_last_24h', value: reports24h },
+      { metric: 'active_countries', value: uniqueCountries },
+      { metric: 'most_reported_illness', value: mostReportedIllness },
+      { metric: 'top_illnesses', value: topIllnesses }
+    ];
 
     return new Response(
-      JSON.stringify({
-        totalReports,
-        recentReports: recentReports.length,
-        severityDistribution: severityCounts,
-        illnessDistribution: illnessCounts,
-        lastUpdated: new Date().toISOString()
-      }),
+      JSON.stringify(aggregates),
       {
         status: 200,
         headers: {
@@ -1160,4 +1191,167 @@ function getSeason(month: number): string {
   if (month >= 5 && month <= 7) return 'Summer';
   if (month >= 8 && month <= 10) return 'Fall';
   return 'Winter';
+}
+
+// Missing endpoint handlers
+async function handleGetWHOData(): Promise<Response> {
+  try {
+    // Mock WHO data for measles cases
+    const whoData = [
+      { Id: 1, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'IND', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '12500' },
+      { Id: 2, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'USA', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '1200' },
+      { Id: 3, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'CHN', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '8900' },
+      { Id: 4, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'NGA', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '15600' },
+      { Id: 5, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'PAK', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '9800' },
+      { Id: 6, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'IDN', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '6700' }
+    ];
+    
+    return new Response(
+      JSON.stringify(whoData),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleGetWHOData:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleGetHealthTips(): Promise<Response> {
+  try {
+    // Mock health tips data
+    const healthTips = [
+      {
+        id: 1,
+        title: 'Stay Hydrated',
+        content: 'Drink at least 8 glasses of water daily to maintain good health.',
+        category: 'general',
+        symptoms: ['dehydration', 'fatigue'],
+        severity: 'low'
+      },
+      {
+        id: 2,
+        title: 'Respiratory Health',
+        content: 'If you have cough and fever, rest well and monitor your symptoms.',
+        category: 'respiratory',
+        symptoms: ['cough', 'fever'],
+        severity: 'medium'
+      },
+      {
+        id: 3,
+        title: 'Emergency Alert',
+        content: 'Chest pain and shortness of breath require immediate medical attention.',
+        category: 'emergency',
+        symptoms: ['chest pain', 'shortness of breath'],
+        severity: 'high'
+      }
+    ];
+    
+    return new Response(
+      JSON.stringify(healthTips),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleGetHealthTips:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleGetDiseases(): Promise<Response> {
+  try {
+    // Mock diseases data
+    const diseases = [
+      { id: 1, name: 'Common Cold', symptoms: ['runny nose', 'sore throat', 'cough'], severity: 'low' },
+      { id: 2, name: 'Influenza', symptoms: ['fever', 'body aches', 'fatigue'], severity: 'medium' },
+      { id: 3, name: 'COVID-19', symptoms: ['fever', 'cough', 'loss of taste'], severity: 'high' },
+      { id: 4, name: 'Dengue', symptoms: ['high fever', 'headache', 'joint pain'], severity: 'high' }
+    ];
+    
+    return new Response(
+      JSON.stringify(diseases),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleGetDiseases:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleGetRegions(): Promise<Response> {
+  try {
+    // Mock regions data
+    const regions = [
+      { id: 1, name: 'North America', countries: ['USA', 'Canada', 'Mexico'] },
+      { id: 2, name: 'South Asia', countries: ['India', 'Pakistan', 'Bangladesh'] },
+      { id: 3, name: 'Europe', countries: ['UK', 'Germany', 'France'] },
+      { id: 4, name: 'Africa', countries: ['Nigeria', 'South Africa', 'Kenya'] }
+    ];
+    
+    return new Response(
+      JSON.stringify(regions),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleGetRegions:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
 }

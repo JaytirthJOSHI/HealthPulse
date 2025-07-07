@@ -21,7 +21,7 @@ const WHOStats: React.FC = () => {
     const fetchWHOStats = async () => {
       try {
         const apiBaseUrl = process.env.NODE_ENV === 'production' 
-          ? 'https://api.pulse.health-sathi.org'
+          ? 'https://healthpulse-api.healthsathi.workers.dev'
           : 'http://localhost:8787';
 
         const response = await fetch(`${apiBaseUrl}/api/who-data`);

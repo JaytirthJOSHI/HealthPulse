@@ -10,7 +10,7 @@ export const supabaseClient = createClient(
 
 // API Configuration
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://api.pulse.health-sathi.org'
+  ? 'https://healthpulse-api.healthsathi.workers.dev'
   : 'http://localhost:8787';
 
 interface SupabaseContextType {
