@@ -4,25 +4,55 @@ import { Heart, Shield, Users, MapPin, Activity, Zap } from 'lucide-react';
 
 const HelmetWrapper = Helmet as any;
 
+const faqs = [
+  {
+    question: "Is my health data anonymous?",
+    answer: "Yes! All reports are anonymous and no personal information is collected or stored. Only general location (country and PIN code) is used for health mapping."
+  },
+  {
+    question: "How can I contribute to community health?",
+    answer: "You can anonymously report your symptoms, view health trends, and share the app with others to help build a healthier community."
+  },
+  {
+    question: "Is HealthSathi's Pulse free to use?",
+    answer: "Yes, the platform is completely free for everyone."
+  },
+  {
+    question: "Can I use HealthSathi's Pulse on my phone?",
+    answer: "Absolutely! The app is fully responsive and works great on phones, tablets, and desktops."
+  }
+];
+
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": faqs.map(faq => ({
+    "@type": "Question",
+    "name": faq.question,
+    "acceptedAnswer": {
+      "@type": "Answer",
+      "text": faq.answer
+    }
+  }))
+};
+
 const About: React.FC = () => {
   return (
     <>
       <HelmetWrapper>
-        <title>About HealthPulse - Our Mission and Technology</title>
-        <meta name="description" content="Learn about HealthPulse, a community-driven platform for real-time health monitoring. Discover our mission to provide anonymous symptom reporting and track local health trends." />
+        <title>About HealthSathi's Pulse - Our Mission and Technology</title>
+        <meta name="description" content="Learn about HealthSathi's Pulse, a community-driven platform for real-time health monitoring. Discover our mission to provide anonymous symptom reporting and track local health trends." />
+        <script type="application/ld+json">{JSON.stringify(faqJsonLd)}</script>
       </HelmetWrapper>
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Hero Section */}
         <div className="text-center">
           <div className="w-20 h-20 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Heart className="w-10 h-10 text-white" />
+            <Heart className="w-10 h-10 text-white" aria-hidden="true" />
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            About HealthPulse
-          </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            A real-time collaborative health heatmap platform where communities can anonymously 
-            report symptoms and monitor local health trends.
+          <h1 className="text-3xl font-bold mb-4">About HealthSathi's Pulse</h1>
+          <p className="mb-6 text-gray-700">
+            HealthSathi's Pulse aims to create a privacy-respecting, community-driven health monitoring platform for everyone.
           </p>
         </div>
 
@@ -30,7 +60,7 @@ const About: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm p-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Our Mission</h2>
           <p className="text-gray-600 leading-relaxed">
-            HealthPulse aims to create a privacy-respecting, community-driven health monitoring 
+            HealthSathi's Pulse aims to create a privacy-respecting, community-driven health monitoring 
             system that helps identify potential health outbreaks early while maintaining complete 
             anonymity for users. By aggregating anonymous symptom reports, we provide valuable 
             insights into local health trends without compromising individual privacy.
@@ -263,6 +293,19 @@ const About: React.FC = () => {
           >
             Report Symptoms Now
           </button>
+        </div>
+
+        {/* FAQ Section */}
+        <div className="bg-white rounded-lg shadow-sm p-8 mt-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Frequently Asked Questions</h2>
+          <div className="space-y-6">
+            {faqs.map((faq, idx) => (
+              <div key={idx} className="border-b border-gray-200 pb-4">
+                <h3 className="text-lg font-semibold text-primary-700 mb-2">{faq.question}</h3>
+                <p className="text-gray-700">{faq.answer}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </>

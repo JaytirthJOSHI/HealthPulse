@@ -58,8 +58,9 @@ const Header: React.FC = () => {
                       ? 'bg-primary-50 dark:bg-primary-900 text-primary-700 dark:text-primary-200 border border-primary-200 dark:border-primary-800'
                       : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
+                  aria-current={isActive ? 'page' : undefined}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-4 h-4" aria-hidden="true" />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -106,8 +107,9 @@ const Header: React.FC = () => {
                         : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
                     }`}
                     onClick={() => setMobileMenuOpen(false)}
+                    aria-current={isActive ? 'page' : undefined}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className="w-4 h-4" aria-hidden="true" />
                     <span>{item.label}</span>
                   </Link>
                 );

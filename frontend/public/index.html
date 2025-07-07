@@ -8,23 +8,25 @@
     <meta name="theme-color" content="#000000" />
     <meta
       name="description"
-      content="HealthPulse is a web application for tracking health symptoms in real-time, viewing heatmaps of disease outbreaks, and getting information about various health conditions."
+      content="HealthSathi's Pulse is a web application for tracking health symptoms in real-time, viewing heatmaps of disease outbreaks, and getting information about various health conditions."
     />
     <meta name="keywords" content="health, symptoms, tracker, disease, map, real-time, monitoring, public health" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://healthpulse.app/" />
-    <meta property="og:title" content="HealthPulse - Real-time Health Monitoring" />
-    <meta property="og:description" content="Track health symptoms, view outbreak maps, and get health information in real-time." />
+    <meta property="og:url" content="https://healthsathi.org/pulse" />
+    <meta property="og:title" content="HealthSathi's Pulse - Real-time Health Monitoring" />
+    <meta property="og:description" content="Track health symptoms, view outbreak maps, and get health information in real-time with HealthSathi's Pulse." />
     <meta property="og:image" content="https://health-sathi.org/images/logo/healthsathi-logo.svg" />
+    <meta property="og:site_name" content="HealthSathi's Pulse" />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://healthpulse.app/" />
-    <meta property="twitter:title" content="HealthPulse - Real-time Health Monitoring" />
-    <meta property="twitter:description" content="Track health symptoms, view outbreak maps, and get health information in real-time." />
+    <meta property="twitter:url" content="https://healthsathi.org/pulse" />
+    <meta property="twitter:title" content="HealthSathi's Pulse - Real-time Health Monitoring" />
+    <meta property="twitter:description" content="Track health symptoms, view outbreak maps, and get health information in real-time with HealthSathi's Pulse." />
     <meta property="twitter:image" content="https://health-sathi.org/images/logo/healthsathi-logo.svg" />
+    <meta name="twitter:site" content="@HealthSathi" />
 
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <!--
@@ -41,7 +43,56 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
-    <title>HealthPulse - Real-time Health Monitoring and Symptom Tracking</title>
+    <title>HealthSathi's Pulse - Real-time Health Monitoring and Symptom Tracking</title>
+    
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "HealthSathi's Pulse",
+      "description": "Real-time health monitoring and symptom tracking platform by HealthSathi.",
+      "url": "https://healthsathi.org/pulse",
+      "applicationCategory": "HealthApplication",
+      "operatingSystem": "Web Browser",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "HealthSathi Team",
+        "email": "info@healthsathi.org"
+      },
+      "featureList": [
+        "Real-time symptom reporting",
+        "Interactive health maps",
+        "Disease information",
+        "Community health monitoring"
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "HealthSathi",
+      "url": "https://healthsathi.org/",
+      "logo": "https://health-sathi.org/images/logo/healthsathi-logo.svg",
+      "contactPoint": [{
+        "@type": "ContactPoint",
+        "email": "info@healthsathi.org",
+        "contactType": "customer support"
+      }],
+      "sameAs": [
+        "https://twitter.com/HealthSathi",
+        "https://www.facebook.com/HealthSathi",
+        "https://www.linkedin.com/company/healthsathi/"
+      ]
+    }
+    </script>
+    <link rel="canonical" href="https://healthsathi.org/pulse" />
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
