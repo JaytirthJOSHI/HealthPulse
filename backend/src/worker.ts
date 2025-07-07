@@ -92,6 +92,23 @@ export default {
         return await handleGetPhoneHealthStatus(request);
       }
 
+      // Predictive Analytics endpoints
+      if (path === '/api/analytics/outbreak-prediction' && request.method === 'GET') {
+        return await handleOutbreakPrediction(request);
+      }
+
+      if (path === '/api/analytics/health-trends' && request.method === 'GET') {
+        return await handleHealthTrends(request);
+      }
+
+      if (path === '/api/analytics/risk-assessment' && request.method === 'POST') {
+        return await handleRiskAssessment(request);
+      }
+
+      if (path === '/api/analytics/seasonal-patterns' && request.method === 'GET') {
+        return await handleSeasonalPatterns(request);
+      }
+
       // 404 for unknown routes
       return new Response(
         JSON.stringify({ error: 'Not found' }),
@@ -691,4 +708,456 @@ async function sendUrgentNotification(phoneNumber: string, diagnosis: any): Prom
 async function sendEmergencyNotification(phoneNumber: string, message: string, severity: string): Promise<boolean> {
   const emergencyMessage = `CRITICAL: ${message}. External AI System: +1 7703620543`;
   return await simulatePhoneNotification(phoneNumber, emergencyMessage, 'emergency');
+}
+
+// Predictive Analytics Handlers
+async function handleOutbreakPrediction(request: Request): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const location = url.searchParams.get('location') || 'general';
+    const timeframe = url.searchParams.get('timeframe') || '30';
+
+    // Analyze recent symptom reports for patterns
+    const recentReports = symptomReports.filter(r => {
+      const reportDate = new Date(r.created_at);
+      const daysAgo = new Date(Date.now() - parseInt(timeframe) * 24 * 60 * 60 * 1000);
+      return reportDate > daysAgo;
+    });
+
+    // Group by illness type and location
+    const illnessCounts = recentReports.reduce((acc: any, report: any) => {
+      const illness = report.illness_type || 'unknown';
+      if (!acc[illness]) {
+        acc[illness] = { count: 0, locations: new Set(), severity: { mild: 0, moderate: 0, severe: 0 } };
+      }
+      acc[illness].count++;
+      acc[illness].locations.add(report.country);
+      acc[illness].severity[report.severity]++;
+      return acc;
+    }, {});
+
+    // Prepare data for AI analysis
+    const analysisData = {
+      timeframe: `${timeframe} days`,
+      location: location,
+      totalReports: recentReports.length,
+      illnessBreakdown: Object.entries(illnessCounts).map(([illness, data]: [string, any]) => ({
+        illness,
+        count: data.count,
+        locations: Array.from(data.locations),
+        severity: data.severity
+      })),
+      recentTrends: recentReports.slice(-10).map(r => ({
+        date: r.created_at,
+        illness: r.illness_type,
+        severity: r.severity,
+        location: r.country
+      }))
+    };
+
+    // Use Hack Club AI for prediction
+    const prediction = await getAIPrediction(analysisData, 'outbreak');
+
+    return new Response(
+      JSON.stringify({
+        prediction: prediction,
+        data: analysisData,
+        confidence: prediction.confidence || 0.75,
+        recommendations: prediction.recommendations || [],
+        lastUpdated: new Date().toISOString()
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleOutbreakPrediction:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleHealthTrends(request: Request): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const period = url.searchParams.get('period') || '7';
+
+    // Get reports for the specified period
+    const periodReports = symptomReports.filter(r => {
+      const reportDate = new Date(r.created_at);
+      const daysAgo = new Date(Date.now() - parseInt(period) * 24 * 60 * 60 * 1000);
+      return reportDate > daysAgo;
+    });
+
+    // Analyze trends
+    const dailyTrends = periodReports.reduce((acc: any, report: any) => {
+      const date = new Date(report.created_at).toISOString().split('T')[0];
+      if (!acc[date]) {
+        acc[date] = { total: 0, illnesses: {}, severity: { mild: 0, moderate: 0, severe: 0 } };
+      }
+      acc[date].total++;
+      acc[date].illnesses[report.illness_type] = (acc[date].illnesses[report.illness_type] || 0) + 1;
+      acc[date].severity[report.severity]++;
+      return acc;
+    }, {});
+
+    // Calculate trend indicators
+    const trendData = {
+      period: `${period} days`,
+      totalReports: periodReports.length,
+      averageDaily: periodReports.length / parseInt(period),
+      dailyBreakdown: Object.entries(dailyTrends).map(([date, data]: [string, any]) => ({
+        date,
+        total: data.total,
+        illnesses: data.illnesses,
+        severity: data.severity
+      })),
+      topIllnesses: Object.entries(
+        periodReports.reduce((acc: any, r: any) => {
+          acc[r.illness_type] = (acc[r.illness_type] || 0) + 1;
+          return acc;
+        }, {})
+      ).sort((a: any, b: any) => b[1] - a[1]).slice(0, 5)
+    };
+
+    // Get AI insights
+    const insights = await getAIPrediction(trendData, 'trends');
+
+    return new Response(
+      JSON.stringify({
+        trends: trendData,
+        insights: insights,
+        lastUpdated: new Date().toISOString()
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleHealthTrends:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleRiskAssessment(request: Request): Promise<Response> {
+  try {
+    const { location, symptoms, medicalHistory, age, gender } = await request.json() as any;
+
+    // Get local health data
+    const localReports = symptomReports.filter(r => 
+      r.country === location || r.pin_code === location
+    ).slice(-50);
+
+    // Prepare risk assessment data
+    const assessmentData = {
+      userProfile: {
+        age: age || 'unknown',
+        gender: gender || 'unknown',
+        location: location,
+        symptoms: symptoms || [],
+        medicalHistory: medicalHistory || []
+      },
+      localHealthData: {
+        totalReports: localReports.length,
+        recentIllnesses: localReports.slice(-10).map(r => r.illness_type),
+        severityDistribution: localReports.reduce((acc: any, r: any) => {
+          acc[r.severity] = (acc[r.severity] || 0) + 1;
+          return acc;
+        }, {})
+      },
+      globalContext: {
+        totalReports: symptomReports.length,
+        topIllnesses: Object.entries(
+          symptomReports.reduce((acc: any, r: any) => {
+            acc[r.illness_type] = (acc[r.illness_type] || 0) + 1;
+            return acc;
+          }, {})
+        ).sort((a: any, b: any) => b[1] - a[1]).slice(0, 5)
+      }
+    };
+
+    // Get AI risk assessment
+    const riskAssessment = await getAIPrediction(assessmentData, 'risk');
+
+    return new Response(
+      JSON.stringify({
+        riskAssessment: riskAssessment,
+        data: assessmentData,
+        lastUpdated: new Date().toISOString()
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleRiskAssessment:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleSeasonalPatterns(request: Request): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const location = url.searchParams.get('location') || 'all';
+
+    // Analyze seasonal patterns
+    const seasonalData = symptomReports.reduce((acc: any, report: any) => {
+      const date = new Date(report.created_at);
+      const month = date.getMonth();
+      const season = getSeason(month);
+      
+      if (!acc[season]) {
+        acc[season] = { total: 0, illnesses: {}, locations: new Set() };
+      }
+      
+      acc[season].total++;
+      acc[season].illnesses[report.illness_type] = (acc[season].illnesses[report.illness_type] || 0) + 1;
+      acc[season].locations.add(report.country);
+      
+      return acc;
+    }, {});
+
+    // Convert to array format
+    const seasonalAnalysis = Object.entries(seasonalData).map(([season, data]: [string, any]) => ({
+      season,
+      total: data.total,
+      illnesses: data.illnesses,
+      locations: Array.from(data.locations)
+    }));
+
+    // Get AI seasonal insights
+    const insights = await getAIPrediction(seasonalAnalysis, 'seasonal');
+
+    return new Response(
+      JSON.stringify({
+        seasonalPatterns: seasonalAnalysis,
+        insights: insights,
+        lastUpdated: new Date().toISOString()
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleSeasonalPatterns:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+// Helper functions for Predictive Analytics
+async function getAIPrediction(data: any, type: string): Promise<any> {
+  try {
+    const prompt = generateAIPrompt(data, type);
+    
+    const response = await fetch('https://ai.hackclub.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a health analytics expert specializing in predictive modeling and outbreak detection. Provide clear, actionable insights based on health data patterns.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 1000,
+        temperature: 0.3
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`AI service error: ${response.status}`);
+    }
+
+    const result = await response.json() as any;
+    const aiResponse = result.choices?.[0]?.message?.content || '';
+
+    // Parse AI response and return structured data
+    return parseAIResponse(aiResponse, type);
+  } catch (error) {
+    console.error('Error calling AI service:', error);
+    // Return fallback response
+    return getFallbackResponse(type);
+  }
+}
+
+function generateAIPrompt(data: any, type: string): string {
+  switch (type) {
+    case 'outbreak':
+      return `Analyze this health data for potential outbreak patterns:
+
+Data: ${JSON.stringify(data, null, 2)}
+
+Please provide:
+1. Outbreak risk assessment (low/medium/high)
+2. Confidence level (0-1)
+3. Key indicators of concern
+4. Recommended preventive measures
+5. Timeline prediction for potential outbreak
+
+Format your response as JSON with keys: risk, confidence, indicators, recommendations, timeline`;
+
+    case 'trends':
+      return `Analyze these health trends:
+
+Data: ${JSON.stringify(data, null, 2)}
+
+Please provide:
+1. Trend analysis summary
+2. Key patterns identified
+3. Anomalies or concerning trends
+4. Recommendations for monitoring
+5. Future trend predictions
+
+Format your response as JSON with keys: summary, patterns, anomalies, recommendations, predictions`;
+
+    case 'risk':
+      return `Assess health risk for this individual:
+
+Data: ${JSON.stringify(data, null, 2)}
+
+Please provide:
+1. Overall risk level (low/medium/high)
+2. Specific risk factors
+3. Preventive recommendations
+4. Monitoring suggestions
+5. Emergency indicators to watch for
+
+Format your response as JSON with keys: riskLevel, riskFactors, recommendations, monitoring, emergencyIndicators`;
+
+    case 'seasonal':
+      return `Analyze seasonal health patterns:
+
+Data: ${JSON.stringify(data, null, 2)}
+
+Please provide:
+1. Seasonal pattern summary
+2. Peak illness periods
+3. Seasonal risk factors
+4. Preventive measures by season
+5. Preparation recommendations
+
+Format your response as JSON with keys: summary, peakPeriods, riskFactors, preventiveMeasures, preparation`;
+
+    default:
+      return `Analyze this health data: ${JSON.stringify(data, null, 2)}`;
+  }
+}
+
+function parseAIResponse(response: string, type: string): any {
+  try {
+    // Try to extract JSON from response
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    
+    // Fallback parsing
+    return {
+      summary: response,
+      confidence: 0.7,
+      recommendations: ['Monitor health trends closely', 'Maintain good hygiene practices']
+    };
+  } catch (error) {
+    console.error('Error parsing AI response:', error);
+    return getFallbackResponse(type);
+  }
+}
+
+function getFallbackResponse(type: string): any {
+  const fallbacks = {
+    outbreak: {
+      risk: 'medium',
+      confidence: 0.6,
+      indicators: ['Increased symptom reports', 'Multiple locations affected'],
+      recommendations: ['Monitor trends closely', 'Maintain hygiene protocols'],
+      timeline: '2-4 weeks'
+    },
+    trends: {
+      summary: 'Health trends are being monitored',
+      patterns: ['Seasonal variations', 'Location-based clusters'],
+      anomalies: 'None detected',
+      recommendations: ['Continue monitoring', 'Report unusual patterns'],
+      predictions: 'Stable trend expected'
+    },
+    risk: {
+      riskLevel: 'low',
+      riskFactors: ['General population risk'],
+      recommendations: ['Maintain good health practices'],
+      monitoring: ['Watch for symptom changes'],
+      emergencyIndicators: ['Severe symptoms', 'Rapid deterioration']
+    },
+    seasonal: {
+      summary: 'Seasonal patterns analyzed',
+      peakPeriods: ['Winter respiratory', 'Summer heat-related'],
+      riskFactors: ['Weather changes', 'Seasonal activities'],
+      preventiveMeasures: ['Seasonal vaccinations', 'Weather-appropriate clothing'],
+      preparation: ['Plan for seasonal health needs']
+    }
+  };
+  
+  return fallbacks[type as keyof typeof fallbacks] || fallbacks.trends;
+}
+
+function getSeason(month: number): string {
+  if (month >= 2 && month <= 4) return 'Spring';
+  if (month >= 5 && month <= 7) return 'Summer';
+  if (month >= 8 && month <= 10) return 'Fall';
+  return 'Winter';
 }

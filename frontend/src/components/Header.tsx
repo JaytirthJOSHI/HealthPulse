@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Activity, MapPin, Info, Shield, Sun, Moon, Phone } from 'lucide-react';
+import { Activity, MapPin, Info, Shield, Sun, Moon, Phone, BarChart3 } from 'lucide-react';
 
 const Header: React.FC = () => {
   const location = useLocation();
@@ -28,6 +28,7 @@ const Header: React.FC = () => {
     { path: '/report', label: 'Report Symptoms', icon: Activity },
     { path: '/diseases', label: 'Disease Info', icon: Shield },
     { path: '/phone-ai', label: 'AI Diagnosis', icon: Phone },
+    { path: '/analytics', label: 'Analytics', icon: BarChart3 },
     { path: '/about', label: 'About', icon: Info },
   ];
 
