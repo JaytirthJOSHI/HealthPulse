@@ -157,5 +157,5 @@ When contributing to the documentation:
 
 ---
 
-*Last updated: January 2024*
+*Last updated: July 2025*
 *Documentation Version: 1.0* 

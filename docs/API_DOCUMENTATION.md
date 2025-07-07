@@ -51,7 +51,7 @@ Check the API service status.
 ```json
 {
   "status": "OK",
-  "timestamp": "2024-01-15T10:30:00.000Z",
+  "timestamp": "2025-07-07T10:30:00.000Z",
   "service": "HealthPulse Backend (Cloudflare Workers)",
   "environment": "production",
   "phoneAISystem": "+1 7703620543"
@@ -98,7 +98,7 @@ Submit a new symptom report.
     "latitude": 40.7128,
     "longitude": -74.0060,
     "phone_number": "+1234567890",
-    "created_at": "2024-01-15T10:30:00.000Z"
+    "created_at": "2025-07-07T10:30:00.000Z"
   }
 }
 ```
@@ -122,7 +122,7 @@ Retrieve all symptom reports.
     "severity": "moderate",
     "latitude": 40.7128,
     "longitude": -74.0060,
-    "created_at": "2024-01-15T10:30:00.000Z"
+    "created_at": "2025-07-07T10:30:00.000Z"
   }
 ]
 ```
@@ -332,7 +332,7 @@ Submit a voice-based symptom report through the phone AI system.
     "longitude": -74.0060,
     "country": "United States"
   },
-  "timestamp": "2024-01-15T10:30:00.000Z"
+      "timestamp": "2025-07-07T10:30:00.000Z"
 }
 ```
 
@@ -350,7 +350,7 @@ Submit a voice-based symptom report through the phone AI system.
     },
     "followUp": {
       "scheduled": true,
-      "nextCall": "2024-01-16T10:30:00.000Z"
+      "nextCall": "2025-07-08T10:30:00.000Z"
     }
   }
 }
@@ -422,7 +422,7 @@ Send a health notification via phone.
   "data": {
     "notificationId": "notif-12345",
     "status": "sent",
-    "deliveryTime": "2024-01-15T10:30:00.000Z"
+    "deliveryTime": "2025-07-07T10:30:00.000Z"
   }
 }
 ```
@@ -481,7 +481,7 @@ Get the current health status for a phone number.
   "data": {
     "phoneNumber": "+1234567890",
     "healthScore": 75,
-    "lastReport": "2024-01-15T10:30:00.000Z",
+    "lastReport": "2025-07-07T10:30:00.000Z",
     "activeConditions": ["Upper respiratory infection"],
     "recommendations": [
       "Continue rest and hydration",
@@ -489,7 +489,7 @@ Get the current health status for a phone number.
       "Follow up in 48 hours"
     ],
     "riskLevel": "low",
-    "nextCheckIn": "2024-01-16T10:30:00.000Z"
+    "nextCheckIn": "2025-07-08T10:30:00.000Z"
   }
 }
 ```
@@ -535,7 +535,7 @@ Get AI-powered outbreak predictions.
     ],
     "modelInfo": {
       "version": "1.2.0",
-      "lastUpdated": "2024-01-15T10:30:00.000Z",
+      "lastUpdated": "2025-07-07T10:30:00.000Z",
       "accuracy": 0.89
     }
   }
@@ -565,7 +565,7 @@ Get health trend analysis.
         "period": "30d",
         "dataPoints": [
           {"date": "2024-01-01", "value": 100},
-          {"date": "2024-01-15", "value": 115}
+          {"date": "2025-07-07", "value": 115}
         ]
       }
     ],
@@ -666,7 +666,7 @@ Get seasonal health pattern analysis.
       }
     ],
     "predictions": {
-      "nextPeak": "February 2024",
+      "nextPeak": "February 2026",
       "expectedCases": 18000,
       "confidence": 0.82
     }
@@ -724,5 +724,5 @@ For technical support or questions about the API, please contact the development
 
 ---
 
-*Last updated: January 2024*
+*Last updated: July 2025*
 *API Version: 1.0*
