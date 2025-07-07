@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, AlertTriangle, BarChart3, Calendar, Brain, Activity } from 'lucide-react';
 
 interface PredictiveAnalyticsProps {
@@ -27,11 +27,7 @@ const PredictiveAnalytics: React.FC<PredictiveAnalyticsProps> = ({ className = '
     { id: 'risk', label: 'Risk Assessment', icon: Brain }
   ];
 
-  useEffect(() => {
-    loadAnalytics();
-  }, [activeTab, location, timeframe]);
-
-  const loadAnalytics = async () => {
+  const loadAnalytics = useCallback(async () => {
     setIsLoading(true);
     setError('');
 
@@ -83,7 +79,11 @@ const PredictiveAnalytics: React.FC<PredictiveAnalyticsProps> = ({ className = '
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeTab, location, timeframe]);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, [loadAnalytics]);
 
   const getRiskColor = (risk: string) => {
     switch (risk?.toLowerCase()) {
