@@ -6,6 +6,7 @@ import HealthMap from './components/HealthMap';
 import SymptomReport from './components/SymptomReport';
 import DiseaseInfo from './components/DiseaseInfo';
 import About from './components/About';
+import PhoneAI from './components/PhoneAI';
 import { RealTimeProvider } from './contexts/RealTimeContext';
 import { SupabaseProvider } from './contexts/SupabaseContext';
 import { Heart, Github, Mail, Shield } from 'lucide-react';
@@ -33,6 +34,7 @@ function App() {
                 <Route path="/report" element={<SymptomReport />} />
                 <Route path="/diseases" element={<DiseaseInfo />} />
                 <Route path="/about" element={<About />} />
+                <Route path="/phone-ai" element={<PhoneAI />} />
               </Routes>
             </main>
             <footer className="bg-white border-t border-gray-200 mt-auto">
@@ -61,6 +63,7 @@ function App() {
                       <li><a href="/" className="text-gray-600 hover:text-gray-900 transition-colors">Health Map</a></li>
                       <li><a href="/report" className="text-gray-600 hover:text-gray-900 transition-colors">Report Symptoms</a></li>
                       <li><a href="/diseases" className="text-gray-600 hover:text-gray-900 transition-colors">Disease Info</a></li>
+                      <li><a href="/phone-ai" className="text-gray-600 hover:text-gray-900 transition-colors">AI Diagnosis</a></li>
                       <li><a href="/about" className="text-gray-600 hover:text-gray-900 transition-colors">About</a></li>
                     </ul>
                   </div>

@@ -47,6 +47,92 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
+// REST API endpoints
+app.get('/api/reports', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { data: reports, error } = await supabase
+      .from('symptom_reports')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1000);
+
+    if (error) {
+      console.error('Error fetching reports:', error);
+      res.status(500).json({ error: 'Failed to fetch reports' });
+      return;
+    }
+
+    res.json(reports || []);
+  } catch (error) {
+    console.error('Error in /api/reports:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/health-aggregates', async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Get total reports
+    const { count: totalReports, error: totalError } = await supabase
+      .from('symptom_reports')
+      .select('*', { count: 'exact', head: true });
+
+    if (totalError) {
+      console.error('Error fetching total reports:', totalError);
+      res.status(500).json({ error: 'Failed to fetch health aggregates' });
+      return;
+    }
+
+    // Get reports in last 24 hours
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count: reports24h, error: recentError } = await supabase
+      .from('symptom_reports')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', twentyFourHoursAgo);
+
+    if (recentError) {
+      console.error('Error fetching recent reports:', recentError);
+      res.status(500).json({ error: 'Failed to fetch health aggregates' });
+      return;
+    }
+
+    // Get illness type distribution
+    const { data: illnessData, error: illnessError } = await supabase
+      .from('symptom_reports')
+      .select('illness_type')
+      .not('illness_type', 'is', null);
+
+    if (illnessError) {
+      console.error('Error fetching illness data:', illnessError);
+      res.status(500).json({ error: 'Failed to fetch health aggregates' });
+      return;
+    }
+
+    // Count illness types
+    const illnessCounts = (illnessData || []).reduce((acc: any, report: any) => {
+      const type = report.illness_type || 'Unknown';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Get top illness types
+    const topIllnesses = Object.entries(illnessCounts)
+      .sort(([,a]: any, [,b]: any) => b - a)
+      .slice(0, 5)
+      .map(([type, count]) => ({ type, count }));
+
+    const aggregates = [
+      { metric: 'total_reports', value: totalReports || 0 },
+      { metric: 'reports_in_last_24h', value: reports24h || 0 },
+      { metric: 'top_illnesses', value: topIllnesses }
+    ];
+
+    res.json(aggregates);
+  } catch (error) {
+    console.error('Error in /api/health-aggregates:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Socket.io connection handling
 io.on('connection', (socket: Socket) => {
   console.log(`Client connected: ${socket.id}`);

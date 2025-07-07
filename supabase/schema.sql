@@ -55,6 +55,71 @@ CREATE TABLE IF NOT EXISTS symptom_reports (
     severity TEXT NOT NULL CHECK (severity IN ('mild', 'moderate', 'severe')),
     latitude DECIMAL(10, 8),
     longitude DECIMAL(11, 8),
+    phone_number TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create AI consultations table for phone AI integration
+CREATE TABLE IF NOT EXISTS ai_consultations (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    phone_number TEXT NOT NULL,
+    symptoms TEXT[] NOT NULL,
+    medical_history JSONB,
+    urgency_level TEXT CHECK (urgency_level IN ('normal', 'urgent', 'critical')) DEFAULT 'normal',
+    consultation_type TEXT NOT NULL CHECK (consultation_type IN ('voice_report', 'ai_diagnosis', 'emergency_diagnosis')),
+    status TEXT NOT NULL CHECK (status IN ('pending_diagnosis', 'in_progress', 'completed', 'urgent')) DEFAULT 'pending_diagnosis',
+    diagnosis TEXT,
+    confidence_score DECIMAL(3, 2),
+    recommendations TEXT[],
+    severity_assessment TEXT CHECK (severity_assessment IN ('low', 'moderate', 'high', 'critical')),
+    audio_url TEXT,
+    location JSONB,
+    emergency_alert_id UUID,
+    ai_response JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create phone notifications table
+CREATE TABLE IF NOT EXISTS phone_notifications (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    phone_number TEXT NOT NULL,
+    message TEXT NOT NULL,
+    notification_type TEXT NOT NULL CHECK (notification_type IN ('health_tip', 'outbreak_alert', 'weather_alert', 'personalized', 'urgent', 'emergency')),
+    consultation_id UUID REFERENCES ai_consultations(id) ON DELETE SET NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'sent', 'delivered', 'failed')) DEFAULT 'pending',
+    sent_at TIMESTAMP WITH TIME ZONE,
+    delivered_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create emergency alerts table
+CREATE TABLE IF NOT EXISTS emergency_alerts (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    phone_number TEXT NOT NULL,
+    symptoms TEXT[] NOT NULL,
+    location JSONB,
+    severity TEXT NOT NULL CHECK (severity IN ('low', 'moderate', 'high', 'critical')),
+    description TEXT,
+    status TEXT NOT NULL CHECK (status IN ('active', 'resolved', 'escalated')) DEFAULT 'active',
+    resolved_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create notification subscriptions table
+CREATE TABLE IF NOT EXISTS notification_subscriptions (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id TEXT,
+    country TEXT,
+    pin_code TEXT,
+    email TEXT,
+    push_enabled BOOLEAN DEFAULT false,
+    outbreak_alerts BOOLEAN DEFAULT true,
+    health_tips BOOLEAN DEFAULT true,
+    weather_alerts BOOLEAN DEFAULT true,
+    personalized_alerts BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -78,12 +143,27 @@ CREATE INDEX IF NOT EXISTS idx_symptom_reports_country ON symptom_reports(countr
 CREATE INDEX IF NOT EXISTS idx_symptom_reports_pin_code ON symptom_reports(pin_code);
 CREATE INDEX IF NOT EXISTS idx_symptom_reports_created_at ON symptom_reports(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_symptom_reports_location ON symptom_reports(latitude, longitude);
+CREATE INDEX IF NOT EXISTS idx_symptom_reports_phone ON symptom_reports(phone_number);
 CREATE INDEX IF NOT EXISTS idx_health_tips_category ON health_tips(category);
 CREATE INDEX IF NOT EXISTS idx_health_tips_severity ON health_tips(severity);
 CREATE INDEX IF NOT EXISTS idx_diseases_category ON diseases(category);
 CREATE INDEX IF NOT EXISTS idx_diseases_severity ON diseases(severity_level);
 CREATE INDEX IF NOT EXISTS idx_regions_location ON regions(latitude, longitude);
 CREATE INDEX IF NOT EXISTS idx_disease_regions_prevalence ON disease_regions(prevalence_level);
+
+-- Phone AI integration indexes
+CREATE INDEX IF NOT EXISTS idx_ai_consultations_phone ON ai_consultations(phone_number);
+CREATE INDEX IF NOT EXISTS idx_ai_consultations_status ON ai_consultations(status);
+CREATE INDEX IF NOT EXISTS idx_ai_consultations_type ON ai_consultations(consultation_type);
+CREATE INDEX IF NOT EXISTS idx_ai_consultations_created_at ON ai_consultations(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_phone_notifications_phone ON phone_notifications(phone_number);
+CREATE INDEX IF NOT EXISTS idx_phone_notifications_status ON phone_notifications(status);
+CREATE INDEX IF NOT EXISTS idx_phone_notifications_type ON phone_notifications(notification_type);
+CREATE INDEX IF NOT EXISTS idx_emergency_alerts_phone ON emergency_alerts(phone_number);
+CREATE INDEX IF NOT EXISTS idx_emergency_alerts_status ON emergency_alerts(status);
+CREATE INDEX IF NOT EXISTS idx_emergency_alerts_severity ON emergency_alerts(severity);
+CREATE INDEX IF NOT EXISTS idx_notification_subscriptions_user ON notification_subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_notification_subscriptions_location ON notification_subscriptions(country, pin_code);
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -101,6 +181,18 @@ CREATE TRIGGER update_symptom_reports_updated_at
 
 CREATE TRIGGER update_health_tips_updated_at 
     BEFORE UPDATE ON health_tips 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_ai_consultations_updated_at 
+    BEFORE UPDATE ON ai_consultations 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_emergency_alerts_updated_at 
+    BEFORE UPDATE ON emergency_alerts 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_notification_subscriptions_updated_at 
+    BEFORE UPDATE ON notification_subscriptions 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Insert sample regions with disease data
