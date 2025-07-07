@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
+import fs from 'node:fs';
+import path from 'node:path';
 
 interface Env {
   SUPABASE_URL: string;
@@ -125,26 +127,29 @@ export default {
 async function handleCreateReport(request: Request, supabase: any): Promise<Response> {
   try {
     const report = await request.json() as any;
-    
-    const { data, error } = await supabase
-      .from('symptom_reports')
-      .insert([{
-        nickname: report.nickname,
-        country: report.country,
-        pin_code: report.pinCode,
-        symptoms: report.symptoms,
-        illness_type: report.illnessType,
-        severity: report.severity,
-        latitude: report.latitude,
-        longitude: report.longitude,
-      }])
-      .select()
-      .single();
-
-    if (error) throw error;
-
+    // Only keep minimal fields
+    const minimalReport = {
+      illness_type: report.illnessType,
+      latitude: report.latitude,
+      longitude: report.longitude,
+      country: report.country,
+      created_at: new Date().toISOString(),
+    };
+    // File-per-day logic
+    const today = new Date().toISOString().slice(0, 10);
+    const dataDir = path.resolve(__dirname, '../../data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir);
+    }
+    const filePath = path.join(dataDir, `reports-${today}.json`);
+    let reports: any[] = [];
+    if (fs.existsSync(filePath)) {
+      reports = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    }
+    reports.push(minimalReport);
+    fs.writeFileSync(filePath, JSON.stringify(reports, null, 2));
     return new Response(
-      JSON.stringify({ success: true, data }),
+      JSON.stringify({ success: true, data: minimalReport }),
       {
         status: 201,
         headers: {
@@ -169,16 +174,26 @@ async function handleCreateReport(request: Request, supabase: any): Promise<Resp
 
 async function handleGetReports(supabase: any): Promise<Response> {
   try {
-    const { data, error } = await supabase
-      .from('symptom_reports')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    if (error) throw error;
-
+    // Aggregate all daily files
+    const dataDir = path.resolve(__dirname, '../../data');
+    if (!fs.existsSync(dataDir)) {
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
+    }
+    const files = fs.readdirSync(dataDir).filter(f => f.startsWith('reports-') && f.endsWith('.json'));
+    let allReports: any[] = [];
+    for (const file of files) {
+      const fileReports = JSON.parse(fs.readFileSync(path.join(dataDir, file), 'utf8'));
+      allReports = allReports.concat(fileReports);
+    }
+    // Sort by created_at descending
+    allReports.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    // Limit to 100
+    const limited = allReports.slice(0, 100);
     return new Response(
-      JSON.stringify(data),
+      JSON.stringify(limited),
       {
         status: 200,
         headers: {
@@ -389,43 +404,45 @@ async function handleGetWHOData(): Promise<Response> {
 
 async function handleGetHealthAggregates(supabase: any): Promise<Response> {
   try {
-    // Get all reports to calculate aggregates
-    const { data: reports, error: reportsError } = await supabase
-      .from('symptom_reports')
-      .select('*');
-
-    if (reportsError) throw reportsError;
-
-    const reportsData = reports || [];
-    
+    // Aggregate all daily files
+    const dataDir = path.resolve(__dirname, '../../data');
+    if (!fs.existsSync(dataDir)) {
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
+    }
+    const files = fs.readdirSync(dataDir).filter(f => f.startsWith('reports-') && f.endsWith('.json'));
+    let reportsData: any[] = [];
+    for (const file of files) {
+      const fileReports = JSON.parse(fs.readFileSync(path.join(dataDir, file), 'utf8'));
+      reportsData = reportsData.concat(fileReports);
+    }
     // Calculate aggregates
     const totalReports = reportsData.length;
-    
-    // Count unique pin codes
-    const uniquePinCodes = new Set(reportsData.map((r: any) => r.pin_code)).size;
-    
+    // Count unique countries
+    const uniqueCountries = new Set(reportsData.map((r: any) => r.country)).size;
     // Count reports in last 24 hours
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const reportsLast24h = reportsData.filter((r: any) => 
       new Date(r.created_at) > oneDayAgo
     ).length;
-    
-    // Find most reported symptom
-    const allSymptoms = reportsData.flatMap((r: any) => r.symptoms || []);
-    const symptomCounts: { [key: string]: number } = {};
-    allSymptoms.forEach((symptom: string) => {
-      symptomCounts[symptom] = (symptomCounts[symptom] || 0) + 1;
+    // Find most reported illness_type
+    const illnessCounts: { [key: string]: number } = {};
+    reportsData.forEach((r: any) => {
+      if (!r.illness_type) return;
+      illnessCounts[r.illness_type] = (illnessCounts[r.illness_type] || 0) + 1;
     });
-    const mostReportedSymptom = Object.keys(symptomCounts).length > 0 
-      ? Object.entries(symptomCounts).reduce((a, b) => a[1] > b[1] ? a : b)[0]
+    const mostReportedIllness = Object.keys(illnessCounts).length > 0 
+      ? Object.entries(illnessCounts).reduce((a, b) => a[1] > b[1] ? a : b)[0]
       : 'N/A';
 
     const aggregates = [
       { metric: 'total_reports', value: totalReports },
-      { metric: 'active_pin_codes', value: uniquePinCodes },
+      { metric: 'active_countries', value: uniqueCountries },
       { metric: 'reports_in_last_24h', value: reportsLast24h },
-      { metric: 'most_reported_symptom', value: mostReportedSymptom }
+      { metric: 'most_reported_illness', value: mostReportedIllness }
     ];
 
     return new Response(
