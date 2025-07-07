@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSupabase } from '../contexts/SupabaseContext';
 import { Helmet } from 'react-helmet-async';
 
-import { SymptomReport as SymptomReportType, HealthTip } from '../types';
+import { HealthTip } from '../types';
 import { Activity, MapPin, User, AlertTriangle, CheckCircle, Heart, Loader2, Check, X } from 'lucide-react';
 
 // Country data with postal code formats

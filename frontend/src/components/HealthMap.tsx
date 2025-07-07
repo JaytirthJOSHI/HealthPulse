@@ -98,7 +98,7 @@ const HealthMap: React.FC = () => {
           <p className="text-gray-600 max-w-2xl mx-auto">
             Real-time visualization of health reports and disease outbreaks across the globe. 
             Click on markers to view detailed reports for each area.
-          </p>
+        </p>
         </header>
 
         {loading && (
@@ -116,118 +116,118 @@ const HealthMap: React.FC = () => {
               <AlertTriangle className="w-5 h-5 text-yellow-600 mr-2" />
               <span className="text-yellow-800">
                 Real-time updates are currently offline. Data will refresh every minute.
-              </span>
-            </div>
-          </div>
+            </span>
+        </div>
+      </div>
         )}
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Map Container */}
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Map Container */}
           <div className="md:col-span-2 bg-white rounded-lg shadow-sm overflow-hidden" aria-label="Map Container">
-            <div className="h-96 w-full">
-              <MapContainer
-                center={[20, 0]} // World view
-                zoom={2}
-                minZoom={1}
-                maxZoom={18}
-                style={{ height: '100%', width: '100%' }}
-                className="rounded-lg"
+          <div className="h-96 w-full">
+            <MapContainer
+              center={[20, 0]} // World view
+              zoom={2}
+              minZoom={1}
+              maxZoom={18}
+              style={{ height: '100%', width: '100%' }}
+              className="rounded-lg"
                 aria-label="Health Map"
-              >
-                <TileLayer
-                  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                  attribution='&copy; <a href="https://carto.com/attributions">CARTO</a> & OpenStreetMap contributors'
-                />
-                <MarkerClusterGroup>
-                  {mapData.map((dataPoint, index) => (
-                    <CircleMarker
-                      key={index}
-                      center={[dataPoint.lat, dataPoint.lng]}
-                      radius={getRadiusByIntensity(dataPoint.intensity)}
-                      fillColor={getColorByIntensity(dataPoint.intensity)}
-                      color={getColorByIntensity(dataPoint.intensity)}
-                      weight={2}
-                      opacity={0.8}
-                      fillOpacity={0.6}
-                      eventHandlers={{
-                        click: () => handleMarkerClick(dataPoint),
-                      }}
-                    >
-                      <Tooltip direction="top" offset={[0, -10]} opacity={1} permanent>
-                        <span className="font-semibold text-xs text-gray-900">{dataPoint.reports.length} reports</span>
-                      </Tooltip>
-                      <Popup>
-                        <div className="p-2">
-                          <h3 className="font-semibold text-gray-900 mb-2">
-                            Health Reports: {dataPoint.reports.length}
-                          </h3>
-                          <div className="text-sm text-gray-600">
-                            Illness: {dataPoint.reports[0]?.illnessType || 'Unknown'}
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1">
-                            Lat: {dataPoint.lat.toFixed(3)}, Lng: {dataPoint.lng.toFixed(3)}
-                          </div>
+            >
+              <TileLayer
+                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                attribution='&copy; <a href="https://carto.com/attributions">CARTO</a> & OpenStreetMap contributors'
+              />
+              <MarkerClusterGroup>
+                {mapData.map((dataPoint, index) => (
+                  <CircleMarker
+                    key={index}
+                    center={[dataPoint.lat, dataPoint.lng]}
+                    radius={getRadiusByIntensity(dataPoint.intensity)}
+                    fillColor={getColorByIntensity(dataPoint.intensity)}
+                    color={getColorByIntensity(dataPoint.intensity)}
+                    weight={2}
+                    opacity={0.8}
+                    fillOpacity={0.6}
+                    eventHandlers={{
+                      click: () => handleMarkerClick(dataPoint),
+                    }}
+                  >
+                    <Tooltip direction="top" offset={[0, -10]} opacity={1} permanent>
+                      <span className="font-semibold text-xs text-gray-900">{dataPoint.reports.length} reports</span>
+                    </Tooltip>
+                    <Popup>
+                      <div className="p-2">
+                        <h3 className="font-semibold text-gray-900 mb-2">
+                          Health Reports: {dataPoint.reports.length}
+                        </h3>
+                        <div className="text-sm text-gray-600">
+                          Illness: {dataPoint.reports[0]?.illnessType || 'Unknown'}
                         </div>
-                      </Popup>
-                    </CircleMarker>
-                  ))}
-                </MarkerClusterGroup>
-              </MapContainer>
-            </div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          Lat: {dataPoint.lat.toFixed(3)}, Lng: {dataPoint.lng.toFixed(3)}
+                        </div>
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                ))}
+              </MarkerClusterGroup>
+            </MapContainer>
           </div>
+        </div>
 
-          {/* Reports Panel */}
+        {/* Reports Panel */}
           <div className="bg-white rounded-lg shadow-sm p-4 h-96 overflow-y-auto" aria-label="Reports Panel">
             <h2 className="text-xl font-bold mb-4 flex items-center">
               <MapPin className="w-5 h-5 mr-2 text-primary-600" aria-hidden="true" />
-              {locationReports.length > 0 ? `Reports for this Area` : 'Select an Area'}
-            </h2>
-            {locationReports.length > 0 ? (
-              <div className="space-y-3">
-                {locationReports.map((report, idx) => (
-                  <div key={idx} className="p-3 bg-gray-50 rounded-lg">
-                    <p className="font-semibold text-gray-800">Illness: {report.illnessType}</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {report.country ? `Country: ${report.country}` : ''}
-                      {report.createdAt ? ` | Date: ${new Date(report.createdAt).toLocaleDateString()}` : ''}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500">Click on a circle on the map to see reports for that area.</p>
-            )}
-          </div>
+            {locationReports.length > 0 ? `Reports for this Area` : 'Select an Area'}
+          </h2>
+          {locationReports.length > 0 ? (
+            <div className="space-y-3">
+              {locationReports.map((report, idx) => (
+                <div key={idx} className="p-3 bg-gray-50 rounded-lg">
+                  <p className="font-semibold text-gray-800">Illness: {report.illnessType}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {report.country ? `Country: ${report.country}` : ''}
+                    {report.createdAt ? ` | Date: ${new Date(report.createdAt).toLocaleDateString()}` : ''}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500">Click on a circle on the map to see reports for that area.</p>
+          )}
         </div>
-        
-        {aggregates.length > 0 && (
+      </div>
+      
+      {aggregates.length > 0 && (
           <section className="mt-4">
             <h2 className="text-xl font-bold text-gray-900 mb-4 text-center">Global Health Statistics</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-              <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <Users className="mx-auto h-8 w-8 text-blue-500 mb-2" />
-                  <p className="text-2xl font-bold">{aggregates.find(a => a.metric === 'total_reports')?.value || 0}</p>
-                  <p className="text-gray-500">Total Reports</p>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <AlertTriangle className="mx-auto h-8 w-8 text-red-500 mb-2" />
-                  <p className="text-2xl font-bold">{aggregates.find(a => a.metric === 'active_countries')?.value || 0}</p>
-                  <p className="text-gray-500">Active Countries</p>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <Activity className="mx-auto h-8 w-8 text-yellow-500 mb-2" />
-                  <p className="text-2xl font-bold">{aggregates.find(a => a.metric === 'most_reported_illness')?.value || 'N/A'}</p>
-                  <p className="text-gray-500">Top Illness</p>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <TrendingUp className="mx-auto h-8 w-8 text-green-500 mb-2" />
-                  <p className="text-2xl font-bold">{aggregates.find(a => a.metric === 'reports_in_last_24h')?.value || 0}</p>
-                  <p className="text-gray-500">Reports (24h)</p>
-              </div>
-            </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+              <Users className="mx-auto h-8 w-8 text-blue-500 mb-2" />
+              <p className="text-2xl font-bold">{aggregates.find(a => a.metric === 'total_reports')?.value || 0}</p>
+              <p className="text-gray-500">Total Reports</p>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+              <AlertTriangle className="mx-auto h-8 w-8 text-red-500 mb-2" />
+              <p className="text-2xl font-bold">{aggregates.find(a => a.metric === 'active_countries')?.value || 0}</p>
+              <p className="text-gray-500">Active Countries</p>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+              <Activity className="mx-auto h-8 w-8 text-yellow-500 mb-2" />
+              <p className="text-2xl font-bold">{aggregates.find(a => a.metric === 'most_reported_illness')?.value || 'N/A'}</p>
+              <p className="text-gray-500">Top Illness</p>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+              <TrendingUp className="mx-auto h-8 w-8 text-green-500 mb-2" />
+              <p className="text-2xl font-bold">{aggregates.find(a => a.metric === 'reports_in_last_24h')?.value || 0}</p>
+              <p className="text-gray-500">Reports (24h)</p>
+          </div>
+        </div>
           </section>
-        )}
-        <WHOStats />
+      )}
+      <WHOStats />
         {/* Community/Users Section - Responsive Enhancements */}
         <section className="mt-8">
           <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg shadow-sm p-6 md:p-8 flex flex-col md:flex-row items-center md:items-stretch justify-between gap-6 md:gap-8">
@@ -255,7 +255,7 @@ const HealthMap: React.FC = () => {
                 />
               ))}
             </div>
-          </div>
+    </div>
         </section>
       </section>
     </>
