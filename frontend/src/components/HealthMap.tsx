@@ -159,6 +159,7 @@ const HealthMap: React.FC = () => {
                     eventHandlers={{
                       click: () => handleMarkerClick(dataPoint),
                     }}
+                    aria-label={`Health reports: ${dataPoint.reports.length} reports in this area`}
                   >
                     <Tooltip direction="top" offset={[0, -10]} opacity={1} permanent>
                       <span className="font-semibold text-xs text-gray-900">{dataPoint.reports.length} reports</span>
