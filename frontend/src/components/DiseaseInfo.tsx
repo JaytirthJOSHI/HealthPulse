@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useSupabase } from '../contexts/SupabaseContext';
-import { AlertTriangle, MapPin, Shield, Thermometer, TrendingUp } from 'lucide-react';
+import { useToast } from '../contexts/ToastContext';
+import { AlertTriangle, MapPin, Shield, Thermometer, TrendingUp, AlertCircle } from 'lucide-react';
 import { DiseaseRisk, HealthAggregate } from '../types';
 import { Helmet } from 'react-helmet-async';
 
 const DiseaseInfo: React.FC = () => {
   const { diseases, getDiseaseRisk, getHealthAggregates } = useSupabase();
+  const { showError, showInfo } = useToast();
   const [selectedPinCode, setSelectedPinCode] = useState('400001'); // Default to Mumbai
   const [diseaseRisks, setDiseaseRisks] = useState<DiseaseRisk[]>([]);
   const [healthAggregates, setHealthAggregates] = useState<HealthAggregate[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const pinCodes = [
     { code: '400001', city: 'Mumbai', state: 'Maharashtra' },
@@ -26,11 +29,17 @@ const DiseaseInfo: React.FC = () => {
 
   const loadDiseaseRisk = async () => {
     setLoading(true);
+    setError(null);
     try {
       const risks = await getDiseaseRisk(selectedPinCode);
-      setDiseaseRisks(risks);
+      setDiseaseRisks(risks || []);
+      if (risks && risks.length > 0) {
+        showInfo(`Loaded ${risks.length} disease risks for ${selectedPinCode}`);
+      }
     } catch (error) {
       console.error('Failed to load disease risk:', error);
+      setError('Failed to load disease risk data. Please try again.');
+      showError('Failed to load disease risk data', 'Please check your connection and try again');
     } finally {
       setLoading(false);
     }
@@ -39,9 +48,10 @@ const DiseaseInfo: React.FC = () => {
   const loadHealthAggregates = async () => {
     try {
       const aggregates = await getHealthAggregates();
-      setHealthAggregates(aggregates);
+      setHealthAggregates(aggregates || []);
     } catch (error) {
       console.error('Failed to load health aggregates:', error);
+      showError('Failed to load health statistics', 'Some data may not be available');
     }
   };
 
@@ -52,7 +62,7 @@ const DiseaseInfo: React.FC = () => {
   }, [selectedPinCode]);
 
   const getSeverityColor = (severity: string) => {
-    switch (severity) {
+    switch (severity?.toLowerCase()) {
       case 'critical': return 'text-red-600 bg-red-100';
       case 'high': return 'text-orange-600 bg-orange-100';
       case 'medium': return 'text-yellow-600 bg-yellow-100';
@@ -62,7 +72,7 @@ const DiseaseInfo: React.FC = () => {
   };
 
   const getPrevalenceColor = (prevalence: string) => {
-    switch (prevalence) {
+    switch (prevalence?.toLowerCase()) {
       case 'endemic': return 'text-red-600 bg-red-100';
       case 'high': return 'text-orange-600 bg-orange-100';
       case 'medium': return 'text-yellow-600 bg-yellow-100';
@@ -98,6 +108,46 @@ const DiseaseInfo: React.FC = () => {
     "mainEntityOfPage": "https://healthsathi.org/pulse/diseases"
   }));
 
+  // Fallback data for when API fails
+  const fallbackDiseaseRisks: DiseaseRisk[] = [
+    {
+      diseaseName: 'Dengue Fever',
+      severityLevel: 'high',
+      prevalenceLevel: 'high',
+      seasonalPeak: ['monsoon', 'post_monsoon'],
+      riskFactors: ['Standing water', 'High population density', 'Poor drainage']
+    },
+    {
+      diseaseName: 'COVID-19',
+      severityLevel: 'medium',
+      prevalenceLevel: 'medium',
+      seasonalPeak: ['winter'],
+      riskFactors: ['Crowded places', 'Poor ventilation', 'Close contact']
+    }
+  ];
+
+  const fallbackHealthAggregates: HealthAggregate[] = [
+    {
+      country: 'India',
+      pinCode: '400001',
+      totalReports: 150,
+      severeCases: 12,
+      moderateCases: 45,
+      mildCases: 93,
+      dengueCases: 25,
+      covidCases: 45,
+      fluCases: 30,
+      malariaCases: 15,
+      typhoidCases: 20,
+      avgLatitude: 19.076,
+      avgLongitude: 72.8777,
+      lastReport: new Date().toISOString()
+    }
+  ];
+
+  const displayDiseaseRisks = error ? fallbackDiseaseRisks : (diseaseRisks || []);
+  const displayHealthAggregates = healthAggregates || fallbackHealthAggregates;
+
   return (
     <>
       <Helmet>
@@ -109,26 +159,36 @@ const DiseaseInfo: React.FC = () => {
       </Helmet>
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Disease Information & Regional Health</h1>
-            <p className="text-gray-600 mt-1">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Disease Information & Regional Health</h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-1">
               Comprehensive disease database and regional health insights
             </p>
           </div>
           <div className="flex items-center space-x-2">
             <Thermometer className="w-5 h-5 text-blue-600" />
-            <span className="text-sm font-medium text-gray-700 capitalize">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">
               Current Season: {currentSeason}
             </span>
           </div>
         </div>
       </div>
 
+      {/* Error Banner */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <div className="flex items-center">
+            <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+            <p className="text-red-800 dark:text-red-200">{error}</p>
+          </div>
+        </div>
+      )}
+
       {/* Location Selector */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
           <MapPin className="w-5 h-5 mr-2" />
           Select Location
         </h2>
@@ -139,23 +199,24 @@ const DiseaseInfo: React.FC = () => {
               onClick={() => setSelectedPinCode(location.code)}
               className={`p-3 rounded-lg border text-left transition-colors ${
                 selectedPinCode === location.code
-                  ? 'border-primary-500 bg-primary-50 text-primary-700'
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
               }`}
             >
               <div className="font-medium text-sm">{location.city}</div>
-              <div className="text-xs text-gray-500">{location.state}</div>
-              <div className="text-xs font-mono text-gray-400">{location.code}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{location.state}</div>
+              <div className="text-xs font-mono text-gray-400 dark:text-gray-500">{location.code}</div>
             </button>
           ))}
         </div>
       </div>
 
       {/* Disease Risk Assessment */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
           <AlertTriangle className="w-5 h-5 mr-2" />
           Disease Risk Assessment
+          {error && <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">(Showing sample data)</span>}
         </h2>
         
         {loading ? (
@@ -164,10 +225,10 @@ const DiseaseInfo: React.FC = () => {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {(diseaseRisks || []).map((risk, index) => (
-              <div key={index} className="border border-gray-200 rounded-lg p-4">
+            {displayDiseaseRisks.map((risk, index) => (
+              <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-gray-900">{risk.diseaseName}</h3>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">{risk.diseaseName}</h3>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(risk.severityLevel)}`}>
                     {risk.severityLevel}
                   </span>
@@ -175,22 +236,22 @@ const DiseaseInfo: React.FC = () => {
                 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Prevalence:</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">Prevalence:</span>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPrevalenceColor(risk.prevalenceLevel)}`}>
                       {risk.prevalenceLevel}
                     </span>
                   </div>
                   
                   <div>
-                    <span className="text-sm text-gray-600">Seasonal Peak:</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">Seasonal Peak:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {(risk.seasonalPeak || []).map((season, idx) => (
                         <span
                           key={idx}
                           className={`px-2 py-1 rounded-full text-xs font-medium ${
                             season === currentSeason
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-gray-100 text-gray-600'
+                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                           }`}
                         >
                           {season}
@@ -200,11 +261,11 @@ const DiseaseInfo: React.FC = () => {
                   </div>
                   
                   <div>
-                    <span className="text-sm text-gray-600">Risk Factors:</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">Risk Factors:</span>
                     <div className="mt-1">
                       {(risk.riskFactors || []).map((factor, idx) => (
-                        <div key={idx} className="text-xs text-gray-500 flex items-center">
-                          <span className="w-1 h-1 bg-gray-400 rounded-full mr-2"></span>
+                        <div key={idx} className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                          <span className="w-1 h-1 bg-gray-400 dark:bg-gray-500 rounded-full mr-2"></span>
                           {factor}
                         </div>
                       ))}
@@ -218,8 +279,8 @@ const DiseaseInfo: React.FC = () => {
       </div>
 
       {/* Disease Database */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
           <Shield className="w-5 h-5 mr-2" />
           Disease Database
         </h2>
@@ -231,9 +292,9 @@ const DiseaseInfo: React.FC = () => {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {(diseases || []).slice(0, 9).map((disease) => (
-              <div key={disease.id} className="border border-gray-200 rounded-lg p-4">
+              <div key={disease.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-gray-900">{disease.name}</h3>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">{disease.name}</h3>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(disease.severityLevel)}`}>
                     {disease.severityLevel}
                   </span>
@@ -241,41 +302,41 @@ const DiseaseInfo: React.FC = () => {
                 
                 <div className="space-y-2 text-sm">
                   <div>
-                    <span className="text-gray-600">Category:</span>
-                    <span className="ml-2 font-medium capitalize">{disease.category.replace('_', ' ')}</span>
+                    <span className="text-gray-600 dark:text-gray-300">Category:</span>
+                    <span className="ml-2 font-medium capitalize">{disease.category?.replace('_', ' ') || 'Unknown'}</span>
                   </div>
                   
                   <div>
-                    <span className="text-gray-600">Transmission:</span>
+                    <span className="text-gray-600 dark:text-gray-300">Transmission:</span>
                     <div className="mt-1">
                       {(disease.transmissionMethod || []).map((method, idx) => (
-                        <span key={idx} className="inline-block px-2 py-1 bg-gray-100 rounded text-xs mr-1 mb-1">
-                          {method.replace('_', ' ')}
+                        <span key={idx} className="inline-block px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs mr-1 mb-1">
+                          {method?.replace('_', ' ') || method}
                         </span>
                       ))}
                     </div>
                   </div>
                   
                   <div>
-                    <span className="text-gray-600">Common Symptoms:</span>
+                    <span className="text-gray-600 dark:text-gray-300">Common Symptoms:</span>
                     <div className="mt-1">
                       {(disease.commonSymptoms || []).slice(0, 3).map((symptom, idx) => (
-                        <span key={idx} className="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs mr-1 mb-1">
+                        <span key={idx} className="inline-block px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded text-xs mr-1 mb-1">
                           {symptom}
                         </span>
                       ))}
                       {(disease.commonSymptoms || []).length > 3 && (
-                        <span className="text-xs text-gray-500">+{(disease.commonSymptoms || []).length - 3} more</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">+{(disease.commonSymptoms || []).length - 3} more</span>
                       )}
                     </div>
                   </div>
                   
                   <div>
-                    <span className="text-gray-600">Prevention:</span>
+                    <span className="text-gray-600 dark:text-gray-300">Prevention:</span>
                     <div className="mt-1">
                       {(disease.preventionMethods || []).slice(0, 2).map((method, idx) => (
-                        <div key={idx} className="text-xs text-gray-500 flex items-center">
-                          <span className="w-1 h-1 bg-green-400 rounded-full mr-2"></span>
+                        <div key={idx} className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                          <span className="w-1 h-1 bg-green-400 dark:bg-green-500 rounded-full mr-2"></span>
                           {method}
                         </div>
                       ))}
@@ -289,42 +350,42 @@ const DiseaseInfo: React.FC = () => {
       </div>
 
       {/* Health Aggregates */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
           <TrendingUp className="w-5 h-5 mr-2" />
           Regional Health Statistics
         </h2>
         
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {(healthAggregates || []).slice(0, 6).map((aggregate, index) => (
-            <div key={index} className="border border-gray-200 rounded-lg p-4">
-                             <div className="flex items-center justify-between mb-3">
-                 <h3 className="font-semibold text-gray-900">{aggregate.pinCode}</h3>
-                 <span className="text-sm text-gray-500">{aggregate.country}</span>
-               </div>
+          {displayHealthAggregates.slice(0, 6).map((aggregate, index) => (
+            <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-gray-900 dark:text-white">{aggregate.pinCode}</h3>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{aggregate.country}</span>
+              </div>
               
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Total Reports:</span>
+                  <span className="text-gray-600 dark:text-gray-300">Total Reports:</span>
                   <span className="font-medium">{aggregate.totalReports}</span>
                 </div>
                 
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Severe Cases:</span>
-                  <span className="font-medium text-red-600">{aggregate.severeCases}</span>
+                  <span className="text-gray-600 dark:text-gray-300">Severe Cases:</span>
+                  <span className="font-medium text-red-600 dark:text-red-400">{aggregate.severeCases}</span>
                 </div>
                 
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Dengue Cases:</span>
-                  <span className="font-medium text-orange-600">{aggregate.dengueCases}</span>
+                  <span className="text-gray-600 dark:text-gray-300">Dengue Cases:</span>
+                  <span className="font-medium text-orange-600 dark:text-orange-400">{aggregate.dengueCases}</span>
                 </div>
                 
                 <div className="flex justify-between">
-                  <span className="text-gray-600">COVID Cases:</span>
-                  <span className="font-medium text-blue-600">{aggregate.covidCases}</span>
+                  <span className="text-gray-600 dark:text-gray-300">COVID Cases:</span>
+                  <span className="font-medium text-blue-600 dark:text-blue-400">{aggregate.covidCases}</span>
                 </div>
                 
-                <div className="text-xs text-gray-500 mt-2">
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                   Last report: {new Date(aggregate.lastReport).toLocaleDateString()}
                 </div>
               </div>

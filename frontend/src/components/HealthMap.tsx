@@ -97,11 +97,11 @@ const HealthMap: React.FC = () => {
       
       <section className="space-y-6" aria-label="Global Health Map">
         <header className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center justify-center">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center justify-center">
             <Globe className="w-8 h-8 mr-3 text-primary-600" aria-hidden="true" />
             Global Health Map
           </h1>
-          <p className="text-gray-600 max-w-2xl mx-auto">
+          <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
             Real-time visualization of health reports and disease outbreaks across the globe. 
             Click on markers to view detailed reports for each area.
         </p>
@@ -130,7 +130,7 @@ const HealthMap: React.FC = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Map Container */}
-          <div className="md:col-span-2 bg-white rounded-lg shadow-sm overflow-hidden" aria-label="Map Container">
+          <div className="md:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden" aria-label="Map Container">
           <div className="h-96 w-full">
             <MapContainer
               center={[20, 0]} // World view
@@ -185,17 +185,17 @@ const HealthMap: React.FC = () => {
         </div>
 
         {/* Reports Panel */}
-          <div className="bg-white rounded-lg shadow-sm p-4 h-96 overflow-y-auto" aria-label="Reports Panel">
-            <h2 className="text-xl font-bold mb-4 flex items-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 h-96 overflow-y-auto" aria-label="Reports Panel">
+            <h2 className="text-xl font-bold mb-4 flex items-center text-gray-900 dark:text-white">
               <MapPin className="w-5 h-5 mr-2 text-primary-600" aria-hidden="true" />
             {locationReports.length > 0 ? `Reports for this Area` : 'Select an Area'}
           </h2>
           {locationReports.length > 0 ? (
             <div className="space-y-3">
               {locationReports.map((report, idx) => (
-                <div key={idx} className="p-3 bg-gray-50 rounded-lg">
-                  <p className="font-semibold text-gray-800">Illness: {report.illnessType}</p>
-                  <p className="text-xs text-gray-400 mt-1">
+                <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <p className="font-semibold text-gray-800 dark:text-gray-200">Illness: {report.illnessType}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                     {report.country ? `Country: ${report.country}` : ''}
                     {report.createdAt ? ` | Date: ${new Date(report.createdAt).toLocaleDateString()}` : ''}
                   </p>

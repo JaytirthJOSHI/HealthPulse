@@ -9,7 +9,10 @@ import { RealTimeProvider } from '../../contexts/RealTimeContext';
 const mockSupabaseContext = {
   reports: [] as any[],
   loading: false,
-  getHealthAggregates: jest.fn().mockResolvedValue([]),
+  getHealthAggregates: jest.fn().mockResolvedValue([
+    { metric: 'total_reports', value: 100 },
+    { metric: 'active_countries', value: 5 }
+  ]),
   addReport: jest.fn(),
   getHealthTip: jest.fn(),
 };
@@ -20,8 +23,14 @@ const mockRealTimeContext = {
   unsubscribeFromReports: jest.fn(),
 };
 
-// Mock react-leaflet
+// Mock react-helmet-async
+jest.mock('react-helmet-async', () => ({
+  Helmet: ({ children }: { children: React.ReactNode }) => <div data-testid="helmet">{children}</div>,
+}));
+
+// Mock react-leaflet with proper ES6 module handling
 jest.mock('react-leaflet', () => ({
+  __esModule: true,
   MapContainer: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="map-container">{children}</div>
   ),
@@ -118,7 +127,17 @@ describe('HealthMap Component', () => {
     
     renderWithProviders(<HealthMap />);
     
-    // Wait for the component to process the reports
+    // Wait for the component to process the reports and aggregates
+    await waitFor(() => {
+      expect(screen.getByTestId('map-container')).toBeInTheDocument();
+    });
+    
+    // Wait for aggregates to load
+    await waitFor(() => {
+      expect(mockSupabaseContext.getHealthAggregates).toHaveBeenCalled();
+    });
+    
+    // Check if marker is rendered (it should be since we have reports with coordinates)
     await waitFor(() => {
       expect(screen.getByTestId('circle-marker')).toBeInTheDocument();
     });
@@ -140,4 +159,4 @@ describe('HealthMap Component', () => {
     // For now, we'll just verify the component renders without errors
     expect(screen.getByText('Global Health Map')).toBeInTheDocument();
   });
-}); 
+});
