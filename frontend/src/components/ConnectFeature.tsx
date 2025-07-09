@@ -24,41 +24,77 @@ const ConnectFeature: React.FC = () => {
     messages: []
   });
   const [messageInput, setMessageInput] = useState('');
-  const [socket, setSocket] = useState<any>(null);
+  const [websocket, setWebsocket] = useState<WebSocket | null>(null);
+  const [userId, setUserId] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Connect to Socket.io server
-    const socketInstance = (window as any).io('https://healthpulse-backend-production.up.railway.app');
-    setSocket(socketInstance);
+    // Connect to WebSocket server
+    const ws = new WebSocket('wss://healthpulse-api.healthsathi.workers.dev/chat');
+    setWebsocket(ws);
 
-    // Socket event listeners
-    socketInstance.on('waiting_for_connection', (data: any) => {
-      setConnectionState(prev => ({
-        ...prev,
-        isWaiting: true,
-        isConnected: false
-      }));
-    });
+    ws.onopen = () => {
+      console.log('WebSocket connected');
+      // Generate a unique user ID
+      const newUserId = `user_${Math.random().toString(36).substr(2, 9)}`;
+      setUserId(newUserId);
+    };
 
-    socketInstance.on('connection_made', (data: any) => {
-      setConnectionState(prev => ({
-        ...prev,
-        isConnected: true,
-        isWaiting: false,
-        connectionId: data.connectionId,
-        partnerId: data.partnerId
-      }));
-    });
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        switch (data.type) {
+          case 'waiting_for_connection':
+            setConnectionState(prev => ({
+              ...prev,
+              isWaiting: true,
+              isConnected: false
+            }));
+            break;
+            
+          case 'connection_made':
+            setConnectionState(prev => ({
+              ...prev,
+              isConnected: true,
+              isWaiting: false,
+              connectionId: data.connectionId,
+              partnerId: data.partnerId
+            }));
+            break;
+            
+          case 'new_message':
+            setConnectionState(prev => ({
+              ...prev,
+              messages: [...prev.messages, data.message]
+            }));
+            break;
+            
+          case 'partner_disconnected':
+            setConnectionState(prev => ({
+              ...prev,
+              isConnected: false,
+              isWaiting: false,
+              connectionId: undefined,
+              partnerId: undefined
+            }));
+            break;
+            
+          case 'error':
+            console.error('WebSocket error:', data.message);
+            break;
+        }
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    };
 
-    socketInstance.on('new_message', (data: any) => {
-      setConnectionState(prev => ({
-        ...prev,
-        messages: [...prev.messages, data.message]
-      }));
-    });
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
 
-    socketInstance.on('partner_disconnected', (data: any) => {
+    ws.onclose = () => {
+      console.log('WebSocket disconnected');
       setConnectionState(prev => ({
         ...prev,
         isConnected: false,
@@ -66,10 +102,10 @@ const ConnectFeature: React.FC = () => {
         connectionId: undefined,
         partnerId: undefined
       }));
-    });
+    };
 
     return () => {
-      socketInstance.disconnect();
+      ws.close();
     };
   }, []);
 
@@ -79,14 +115,21 @@ const ConnectFeature: React.FC = () => {
   }, [connectionState.messages]);
 
   const handleConnect = () => {
-    if (socket) {
-      socket.emit('request_connection');
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send(JSON.stringify({
+        type: 'request_connection',
+        userId: userId
+      }));
     }
   };
 
   const handleDisconnect = () => {
-    if (socket && connectionState.connectionId) {
-      socket.emit('disconnect_from_chat', { connectionId: connectionState.connectionId });
+    if (websocket && websocket.readyState === WebSocket.OPEN && connectionState.connectionId) {
+      websocket.send(JSON.stringify({
+        type: 'disconnect_from_chat',
+        connectionId: connectionState.connectionId,
+        userId: userId
+      }));
     }
     setConnectionState(prev => ({
       ...prev,
@@ -99,11 +142,13 @@ const ConnectFeature: React.FC = () => {
   };
 
   const sendMessage = () => {
-    if (messageInput.trim() && socket && connectionState.connectionId) {
-      socket.emit('send_message', {
+    if (messageInput.trim() && websocket && websocket.readyState === WebSocket.OPEN && connectionState.connectionId) {
+      websocket.send(JSON.stringify({
+        type: 'send_message',
         connectionId: connectionState.connectionId,
+        userId: userId,
         message: messageInput.trim()
-      });
+      }));
       setMessageInput('');
     }
   };
@@ -158,10 +203,11 @@ const ConnectFeature: React.FC = () => {
             </div>
             <button
               onClick={handleConnect}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors w-full"
+              disabled={!websocket || websocket.readyState !== WebSocket.OPEN}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg transition-colors w-full"
             >
               <Phone size={16} className="inline mr-2" />
-              Start Connecting
+              {websocket && websocket.readyState === WebSocket.OPEN ? 'Start Connecting' : 'Connecting...'}
             </button>
           </div>
         )}
@@ -212,11 +258,11 @@ const ConnectFeature: React.FC = () => {
                 connectionState.messages.map((message) => (
                   <div
                     key={message.id}
-                    className={`flex ${message.senderId === socket?.id ? 'justify-end' : 'justify-start'}`}
+                    className={`flex ${message.senderId === userId ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
                       className={`max-w-xs px-3 py-2 rounded-lg text-sm ${
-                        message.senderId === socket?.id
+                        message.senderId === userId
                           ? 'bg-blue-500 text-white'
                           : 'bg-gray-100 text-gray-800'
                       }`}
