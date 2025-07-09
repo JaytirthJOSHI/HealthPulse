@@ -29,7 +29,7 @@ const ConnectFeature: React.FC = () => {
 
   useEffect(() => {
     // Connect to Socket.io server
-    const socketInstance = (window as any).io('http://localhost:3001');
+    const socketInstance = (window as any).io('https://healthpulse-backend-production.up.railway.app');
     setSocket(socketInstance);
 
     // Socket event listeners
