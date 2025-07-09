@@ -297,6 +297,109 @@ app.post('/api/reports', async (req: Request, res: Response): Promise<void> => {
 io.on('connection', (socket: Socket) => {
   console.log(`Client connected: ${socket.id}`);
 
+  // Store waiting users for pairing
+  const waitingUsers = new Map<string, { socketId: string, timestamp: number }>();
+  const activeConnections = new Map<string, { user1: string, user2: string, messages: any[] }>();
+
+  // Handle connection requests
+  socket.on('request_connection', () => {
+    console.log(`User ${socket.id} requesting connection`);
+    
+    // Check if there's a waiting user
+    const waitingUser = Array.from(waitingUsers.entries()).find(([userId, data]) => {
+      // Remove expired waiting users (older than 30 seconds)
+      if (Date.now() - data.timestamp > 30000) {
+        waitingUsers.delete(userId);
+        return false;
+      }
+      return userId !== socket.id;
+    });
+
+    if (waitingUser) {
+      // Pair with waiting user
+      const [waitingUserId, waitingData] = waitingUser;
+      waitingUsers.delete(waitingUserId);
+      
+      // Create connection
+      const connectionId = `conn_${Date.now()}`;
+      activeConnections.set(connectionId, {
+        user1: waitingUserId,
+        user2: socket.id,
+        messages: []
+      });
+
+      // Notify both users
+      io.to(waitingUserId).emit('connection_made', { 
+        connectionId, 
+        partnerId: socket.id,
+        message: 'You have been connected with another user!'
+      });
+      
+      io.to(socket.id).emit('connection_made', { 
+        connectionId, 
+        partnerId: waitingUserId,
+        message: 'You have been connected with another user!'
+      });
+
+      console.log(`Paired users ${waitingUserId} and ${socket.id}`);
+    } else {
+      // Add to waiting list
+      waitingUsers.set(socket.id, { socketId: socket.id, timestamp: Date.now() });
+      socket.emit('waiting_for_connection', { message: 'Waiting for another user to connect...' });
+      console.log(`User ${socket.id} added to waiting list`);
+    }
+  });
+
+  // Handle messages between connected users
+  socket.on('send_message', (data: { connectionId: string, message: string }) => {
+    const connection = activeConnections.get(data.connectionId);
+    if (!connection) {
+      socket.emit('error', { message: 'Connection not found' });
+      return;
+    }
+
+    // Determine the partner
+    const partnerId = connection.user1 === socket.id ? connection.user2 : connection.user1;
+    
+    // Add message to connection history
+    const messageData = {
+      id: Date.now().toString(),
+      senderId: socket.id,
+      message: data.message,
+      timestamp: new Date().toISOString()
+    };
+    connection.messages.push(messageData);
+
+    // Send message to partner
+    io.to(partnerId).emit('new_message', {
+      connectionId: data.connectionId,
+      message: messageData
+    });
+
+    // Confirm message sent to sender
+    socket.emit('message_sent', {
+      connectionId: data.connectionId,
+      message: messageData
+    });
+  });
+
+  // Handle disconnection from chat
+  socket.on('disconnect_from_chat', (data: { connectionId: string }) => {
+    const connection = activeConnections.get(data.connectionId);
+    if (connection) {
+      const partnerId = connection.user1 === socket.id ? connection.user2 : connection.user1;
+      
+      // Notify partner
+      io.to(partnerId).emit('partner_disconnected', {
+        connectionId: data.connectionId,
+        message: 'Your chat partner has disconnected'
+      });
+      
+      // Remove connection
+      activeConnections.delete(data.connectionId);
+    }
+  });
+
   // Handle new symptom reports
   socket.on('new_report', async (data: any) => {
     try {

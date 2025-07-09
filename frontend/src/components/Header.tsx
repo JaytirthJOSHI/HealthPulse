@@ -45,17 +45,17 @@ const Header: React.FC<HeaderProps> = ({
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-1">
             {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
+                <Link
+                  key={item.path}
+                  to={item.path}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive(item.path)
                     ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
                     : 'text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-                }`}
+                  }`}
               >
                 {item.label}
-              </Link>
+                </Link>
             ))}
           </nav>
 
@@ -140,7 +140,7 @@ const Header: React.FC<HeaderProps> = ({
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   theme === 'dark' ? 'bg-blue-500' : 'bg-gray-200 dark:bg-gray-700'
                 }`}
-              >
+                  >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                     theme === 'dark' ? 'translate-x-6' : 'translate-x-1'

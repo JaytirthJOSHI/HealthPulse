@@ -27,43 +27,43 @@ let emergencyAlerts: any[] = [];
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     try {
-      const url = new URL(request.url);
-      const path = url.pathname;
+    const url = new URL(request.url);
+    const path = url.pathname;
 
-      // Handle CORS preflight
-      if (request.method === 'OPTIONS') {
-        return new Response(null, {
-          status: 200,
-          headers: corsHeaders,
-        });
-      }
+    // Handle CORS preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 200,
+        headers: corsHeaders,
+      });
+    }
 
-      // Health check endpoint
-      if (path === '/health' && request.method === 'GET') {
-        return new Response(
-          JSON.stringify({
-            status: 'OK',
-            timestamp: new Date().toISOString(),
-            service: 'HealthPulse Backend (Cloudflare Workers)',
-            environment: 'production',
+    // Health check endpoint
+    if (path === '/health' && request.method === 'GET') {
+      return new Response(
+        JSON.stringify({
+          status: 'OK',
+          timestamp: new Date().toISOString(),
+          service: 'HealthPulse Backend (Cloudflare Workers)',
+          environment: 'production',
             phoneAISystem: '+1 7703620543'
-          }),
-          {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/json',
-              ...corsHeaders,
-            },
-          }
-        );
-      }
+        }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          },
+        }
+      );
+    }
 
-      // REST API endpoints
-      if (path === '/api/reports' && request.method === 'POST') {
+    // REST API endpoints
+    if (path === '/api/reports' && request.method === 'POST') {
         return await handleCreateReport(request);
-      }
+    }
 
-      if (path === '/api/reports' && request.method === 'GET') {
+    if (path === '/api/reports' && request.method === 'GET') {
         return await handleGetReports();
       }
 
@@ -78,13 +78,13 @@ export default {
 
       if (path === '/api/health-tips' && request.method === 'GET') {
         return await handleGetHealthTips();
-      }
+    }
 
-      if (path === '/api/diseases' && request.method === 'GET') {
+    if (path === '/api/diseases' && request.method === 'GET') {
         return await handleGetDiseases();
-      }
+    }
 
-      if (path === '/api/regions' && request.method === 'GET') {
+    if (path === '/api/regions' && request.method === 'GET') {
         return await handleGetRegions();
       }
 
@@ -124,19 +124,19 @@ export default {
 
       if (path === '/api/analytics/seasonal-patterns' && request.method === 'GET') {
         return await handleSeasonalPatterns(request);
-      }
+    }
 
-      // 404 for unknown routes
-      return new Response(
-        JSON.stringify({ error: 'Not found' }),
-        {
-          status: 404,
-          headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders,
-          },
-        }
-      );
+    // 404 for unknown routes
+    return new Response(
+      JSON.stringify({ error: 'Not found' }),
+      {
+        status: 404,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
     } catch (error) {
       console.error('Worker error:', error);
       return new Response(
@@ -163,14 +163,14 @@ async function handleCreateReport(request: Request): Promise<Response> {
     
     const newReport = {
       id: generateId(),
-      nickname: report.nickname,
-      country: report.country,
-      pin_code: report.pinCode,
-      symptoms: report.symptoms,
-      illness_type: report.illnessType,
-      severity: report.severity,
-      latitude: report.latitude,
-      longitude: report.longitude,
+        nickname: report.nickname,
+        country: report.country,
+        pin_code: report.pinCode,
+        symptoms: report.symptoms,
+        illness_type: report.illnessType,
+        severity: report.severity,
+        latitude: report.latitude,
+        longitude: report.longitude,
       phone_number: report.phoneNumber,
       created_at: new Date().toISOString()
     };
@@ -574,7 +574,7 @@ async function handleGetPhoneHealthStatus(request: Request): Promise<Response> {
   try {
     const url = new URL(request.url);
     const phoneNumber = url.searchParams.get('phoneNumber');
-    
+
     if (!phoneNumber) {
       return new Response(
         JSON.stringify({ error: 'Phone number is required' }),
@@ -1001,7 +1001,7 @@ async function handleSeasonalPatterns(request: Request): Promise<Response> {
       }),
       {
         status: 200,
-        headers: {
+      headers: {
           'Content-Type': 'application/json',
           ...corsHeaders,
         },
@@ -1201,7 +1201,7 @@ async function handleGetWHOData(): Promise<Response> {
       { Id: 5, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'PAK', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '9800' },
       { Id: 6, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'IDN', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '6700' }
     ];
-    
+
     return new Response(
       JSON.stringify(whoData),
       {
