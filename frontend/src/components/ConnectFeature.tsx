@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, X, MessageCircle, MapPin, Calendar, Heart, Eye, EyeOff } from 'lucide-react';
+import { Users, X, MapPin, Calendar, Heart, Eye, EyeOff } from 'lucide-react';
 
 interface HealthReport {
   id: string;
