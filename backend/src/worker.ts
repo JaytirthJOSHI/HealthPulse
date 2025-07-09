@@ -8,7 +8,57 @@ declare global {
     waitUntil(promise: Promise<any>): void;
     passThroughOnException(): void;
   }
+  
+  // WebSocket types for Cloudflare Workers
+  interface WebSocketPair {
+    0: WebSocket;
+    1: WebSocket;
+  }
+  
+  interface WebSocket {
+    accept(): void;
+    addEventListener(type: string, listener: (event: any) => void): void;
+    send(data: string | ArrayBuffer): void;
+    close(code?: number, reason?: string): void;
+  }
+  
+  interface ResponseInit {
+    status?: number;
+    statusText?: string;
+    headers?: Record<string, string>;
+    webSocket?: WebSocket;
+  }
+  
+  // WebSocket constructor
+  var WebSocketPair: {
+    new(): [WebSocket, WebSocket];
+  };
 }
+
+// WebSocket connection management
+interface ChatConnection {
+  user1: string;
+  user2: string;
+  messages: ChatMessage[];
+  createdAt: number;
+}
+
+interface ChatMessage {
+  id: string;
+  senderId: string;
+  message: string;
+  timestamp: string;
+}
+
+interface WaitingUser {
+  socketId: string;
+  timestamp: number;
+}
+
+// In-memory storage for chat (in production, you'd use KV or D1)
+let waitingUsers = new Map<string, WaitingUser>();
+let activeConnections = new Map<string, ChatConnection>();
+let connectedWebSockets = new Map<string, WebSocket>();
 
 // CORS headers
 const corsHeaders = {
@@ -29,6 +79,11 @@ export default {
     try {
     const url = new URL(request.url);
     const path = url.pathname;
+
+    // Handle WebSocket upgrade
+    if (request.headers.get('Upgrade') === 'websocket') {
+      return await handleWebSocketUpgrade(request, env, ctx);
+    }
 
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
@@ -155,6 +210,229 @@ export default {
     }
   },
 };
+
+// WebSocket handling functions
+async function handleWebSocketUpgrade(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const upgradeHeader = request.headers.get('Upgrade');
+  if (upgradeHeader !== 'websocket') {
+    return new Response('Expected websocket', { status: 400 });
+  }
+
+  const webSocketPair = new WebSocketPair();
+  const [client, server] = Object.values(webSocketPair) as [WebSocket, WebSocket];
+
+  server.accept();
+
+  // Handle WebSocket messages
+  server.addEventListener('message', (event: any) => {
+    try {
+      const data = JSON.parse(event.data as string);
+      handleWebSocketMessage(server, data);
+    } catch (error) {
+      console.error('Error parsing WebSocket message:', error);
+      sendWebSocketMessage(server, { type: 'error', message: 'Invalid message format' });
+    }
+  });
+
+  // Handle WebSocket close
+  server.addEventListener('close', () => {
+    handleWebSocketClose(server);
+  });
+
+  // Handle WebSocket error
+  server.addEventListener('error', (error: any) => {
+    console.error('WebSocket error:', error);
+    handleWebSocketClose(server);
+  });
+
+  return new Response(null, {
+    status: 101,
+    webSocket: client,
+  } as any);
+}
+
+function handleWebSocketMessage(websocket: WebSocket, data: any) {
+  const socketId = generateSocketId();
+  
+  switch (data.type) {
+    case 'request_connection':
+      handleRequestConnection(websocket, socketId);
+      break;
+    case 'send_message':
+      handleSendMessage(websocket, data, socketId);
+      break;
+    case 'disconnect_from_chat':
+      handleDisconnectFromChat(websocket, data, socketId);
+      break;
+    default:
+      sendWebSocketMessage(websocket, { type: 'error', message: 'Unknown message type' });
+  }
+}
+
+function handleRequestConnection(websocket: WebSocket, socketId: string) {
+  console.log(`User ${socketId} requesting connection`);
+  
+  // Store the WebSocket connection
+  connectedWebSockets.set(socketId, websocket);
+  
+  // Clean up expired waiting users (older than 30 seconds)
+  const now = Date.now();
+  for (const [userId, userData] of waitingUsers.entries()) {
+    if (now - userData.timestamp > 30000) {
+      waitingUsers.delete(userId);
+    }
+  }
+  
+  // Check if there's a waiting user
+  const waitingUser = Array.from(waitingUsers.entries()).find(([userId]) => userId !== socketId);
+  
+  if (waitingUser) {
+    // Pair with waiting user
+    const [waitingUserId] = waitingUser;
+    waitingUsers.delete(waitingUserId);
+    
+    // Create connection
+    const connectionId = `conn_${Date.now()}`;
+    activeConnections.set(connectionId, {
+      user1: waitingUserId,
+      user2: socketId,
+      messages: [],
+      createdAt: now
+    });
+
+    // Notify both users
+    const waitingWebSocket = connectedWebSockets.get(waitingUserId);
+    if (waitingWebSocket) {
+      sendWebSocketMessage(waitingWebSocket, {
+        type: 'connection_made',
+        connectionId,
+        partnerId: socketId,
+        message: 'You have been connected with another user!'
+      });
+    }
+    
+    sendWebSocketMessage(websocket, {
+      type: 'connection_made',
+      connectionId,
+      partnerId: waitingUserId,
+      message: 'You have been connected with another user!'
+    });
+
+    console.log(`Paired users ${waitingUserId} and ${socketId}`);
+  } else {
+    // Add to waiting list
+    waitingUsers.set(socketId, { socketId, timestamp: now });
+    sendWebSocketMessage(websocket, {
+      type: 'waiting_for_connection',
+      message: 'Waiting for another user to connect...'
+    });
+    console.log(`User ${socketId} added to waiting list`);
+  }
+}
+
+function handleSendMessage(websocket: WebSocket, data: any, socketId: string) {
+  const connection = activeConnections.get(data.connectionId);
+  if (!connection) {
+    sendWebSocketMessage(websocket, { type: 'error', message: 'Connection not found' });
+    return;
+  }
+
+  // Determine the partner
+  const partnerId = connection.user1 === socketId ? connection.user2 : connection.user1;
+  
+  // Add message to connection history
+  const messageData: ChatMessage = {
+    id: Date.now().toString(),
+    senderId: socketId,
+    message: data.message,
+    timestamp: new Date().toISOString()
+  };
+  connection.messages.push(messageData);
+
+  // Send message to partner
+  const partnerWebSocket = connectedWebSockets.get(partnerId);
+  if (partnerWebSocket) {
+    sendWebSocketMessage(partnerWebSocket, {
+      type: 'new_message',
+      connectionId: data.connectionId,
+      message: messageData
+    });
+  }
+
+  // Confirm message sent to sender
+  sendWebSocketMessage(websocket, {
+    type: 'message_sent',
+    connectionId: data.connectionId,
+    message: messageData
+  });
+}
+
+function handleDisconnectFromChat(websocket: WebSocket, data: any, socketId: string) {
+  const connection = activeConnections.get(data.connectionId);
+  if (connection) {
+    const partnerId = connection.user1 === socketId ? connection.user2 : connection.user1;
+    
+    // Notify partner
+    const partnerWebSocket = connectedWebSockets.get(partnerId);
+    if (partnerWebSocket) {
+      sendWebSocketMessage(partnerWebSocket, {
+        type: 'partner_disconnected',
+        connectionId: data.connectionId,
+        message: 'Your chat partner has disconnected'
+      });
+    }
+    
+    // Remove connection
+    activeConnections.delete(data.connectionId);
+  }
+}
+
+function handleWebSocketClose(websocket: WebSocket) {
+  // Find and remove the socket from connectedWebSockets
+  for (const [socketId, ws] of connectedWebSockets.entries()) {
+    if (ws === websocket) {
+      connectedWebSockets.delete(socketId);
+      
+      // Remove from waiting users
+      waitingUsers.delete(socketId);
+      
+      // Handle disconnection from active connections
+      for (const [connectionId, connection] of activeConnections.entries()) {
+        if (connection.user1 === socketId || connection.user2 === socketId) {
+          const partnerId = connection.user1 === socketId ? connection.user2 : connection.user1;
+          
+          // Notify partner
+          const partnerWebSocket = connectedWebSockets.get(partnerId);
+          if (partnerWebSocket) {
+            sendWebSocketMessage(partnerWebSocket, {
+              type: 'partner_disconnected',
+              connectionId,
+              message: 'Your chat partner has disconnected'
+            });
+          }
+          
+          // Remove connection
+          activeConnections.delete(connectionId);
+        }
+      }
+      
+      console.log(`Client disconnected: ${socketId}`);
+      break;
+    }
+  }
+}
+
+function sendWebSocketMessage(websocket: WebSocket, data: any) {
+  try {
+    websocket.send(JSON.stringify(data));
+  } catch (error) {
+    console.error('Error sending WebSocket message:', error);
+  }
+}
+
+function generateSocketId(): string {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
 
 // Handler functions
 async function handleCreateReport(request: Request): Promise<Response> {
@@ -915,7 +1193,7 @@ async function handleRiskAssessment(request: Request): Promise<Response> {
         severityDistribution: localReports.reduce((acc: any, r: any) => {
           acc[r.severity] = (acc[r.severity] || 0) + 1;
           return acc;
-        }, {})
+        })
       },
       globalContext: {
         totalReports: symptomReports.length,
