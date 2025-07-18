@@ -42,8 +42,8 @@ const HealthCommunity: React.FC<HealthCommunityProps> = ({ isVisible, onClose })
     const fetchData = async () => {
       try {
         const [groupsResponse, challengesResponse] = await Promise.all([
-          fetch('http://localhost:8787/api/collaborative/groups'),
-          fetch('http://localhost:8787/api/collaborative/challenges')
+          fetch('https://healthpulse-api.healthsathi.workers.dev/api/collaborative/groups'),
+          fetch('https://healthpulse-api.healthsathi.workers.dev/api/collaborative/challenges')
         ]);
         if (groupsResponse.ok) {
           const groupsData = await groupsResponse.json();
