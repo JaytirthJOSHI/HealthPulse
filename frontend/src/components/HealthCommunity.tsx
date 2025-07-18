@@ -16,7 +16,7 @@ interface HealthCommunityProps {
   onClose: () => void;
 }
 
-const WS_URL = window.location.hostname === 'localhost' ? 'ws://localhost:8787' : 'wss://' + window.location.host;
+const WS_URL = window.location.hostname === 'localhost' ? 'ws://localhost:8787' : 'wss://healthpulse-api.healthsathi.workers.dev/chat';
 
 const HealthCommunity: React.FC<HealthCommunityProps> = ({ isVisible, onClose }) => {
   const [activeTab, setActiveTab] = useState<'groups' | 'challenges'>('groups');
