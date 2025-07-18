@@ -9,16 +9,19 @@ import About from './components/About';
 import PhoneAI from './components/PhoneAI';
 import PredictiveAnalytics from './components/PredictiveAnalytics';
 import ConnectFeature from './components/ConnectFeature';
+import HealthCommunity from './components/HealthCommunity';
 import { RealTimeProvider } from './contexts/RealTimeContext';
 import { SupabaseProvider } from './contexts/SupabaseContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { Heart, Github, Mail, Shield } from 'lucide-react';
+import { isFeatureEnabled } from './config/features';
 
 const HelmetWrapper = Helmet as any;
 
 function App() {
   const [connectFeatureEnabled, setConnectFeatureEnabled] = useState(false);
+  const [collaborativeFeaturesVisible, setCollaborativeFeaturesVisible] = useState(false);
 
   return (
     <ThemeProvider>
@@ -38,6 +41,7 @@ function App() {
             <Header 
               connectFeatureEnabled={connectFeatureEnabled}
               onToggleConnectFeature={setConnectFeatureEnabled}
+              onOpenCollaborativeFeatures={() => setCollaborativeFeaturesVisible(true)}
             />
             <main id="main-content" className="container mx-auto px-4 py-6 flex-grow" aria-label="Main Content">
               <Routes>
@@ -52,6 +56,14 @@ function App() {
             
             {/* Connect Feature */}
             <ConnectFeature />
+            
+            {/* Health Community */}
+            {isFeatureEnabled('COMMUNITY_ENABLED') && (
+              <HealthCommunity 
+                isVisible={collaborativeFeaturesVisible}
+                onClose={() => setCollaborativeFeaturesVisible(false)}
+              />
+            )}
             
             <footer className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 mt-auto">
               <div className="container mx-auto px-4 py-8">

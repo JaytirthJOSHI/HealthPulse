@@ -30,11 +30,12 @@ const ConnectFeature: React.FC = () => {
 
   useEffect(() => {
     // Connect to WebSocket server
-    const ws = new WebSocket('wss://healthpulse-api.healthsathi.workers.dev/chat');
+    const wsUrl = window.location.hostname === 'localhost' ? 'ws://localhost:8787' : 'wss://healthpulse-api.healthsathi.workers.dev/chat';
+    const ws = new WebSocket(wsUrl);
     setWebsocket(ws);
 
     ws.onopen = () => {
-      console.log('WebSocket connected');
+      console.log('WebSocket connected for ConnectFeature');
       // Generate a unique user ID
       const newUserId = `user_${Math.random().toString(36).substr(2, 9)}`;
       setUserId(newUserId);
@@ -43,6 +44,7 @@ const ConnectFeature: React.FC = () => {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log('WebSocket message received:', data.type);
         
         switch (data.type) {
           case 'waiting_for_connection':
@@ -70,6 +72,11 @@ const ConnectFeature: React.FC = () => {
             }));
             break;
             
+          case 'message_sent':
+            // Message was successfully sent to server - no need to add locally
+            // The server will broadcast it back as 'new_message'
+            break;
+            
           case 'partner_disconnected':
             setConnectionState(prev => ({
               ...prev,
@@ -93,8 +100,8 @@ const ConnectFeature: React.FC = () => {
       console.error('WebSocket error:', error);
     };
 
-    ws.onclose = () => {
-      console.log('WebSocket disconnected');
+    ws.onclose = (event) => {
+      console.log('WebSocket disconnected:', event.code, event.reason);
       setConnectionState(prev => ({
         ...prev,
         isConnected: false,
@@ -150,6 +157,7 @@ const ConnectFeature: React.FC = () => {
         message: messageInput.trim()
       }));
       setMessageInput('');
+      // Don't add message locally - wait for server confirmation
     }
   };
 

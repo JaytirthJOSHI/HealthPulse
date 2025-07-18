@@ -242,7 +242,11 @@ const PredictiveAnalytics: React.FC<PredictiveAnalyticsProps> = ({ className = '
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <h4 className="font-medium text-sm mb-2">Future Predictions:</h4>
-              <p className="text-sm text-gray-600">{trendsData.insights?.predictions}</p>
+              <p className="text-sm text-gray-600">
+                {typeof trendsData.insights?.predictions === 'string' 
+                  ? trendsData.insights.predictions 
+                  : JSON.stringify(trendsData.insights?.predictions)}
+              </p>
             </div>
             <div>
               <h4 className="font-medium text-sm mb-2">Recommendations:</h4>
@@ -272,7 +276,11 @@ const PredictiveAnalytics: React.FC<PredictiveAnalyticsProps> = ({ className = '
             <Calendar className="w-5 h-5 mr-2 text-purple-500" />
             Seasonal Analysis
           </h3>
-          <p className="text-sm text-gray-600 mb-4">{seasonalData.insights?.summary}</p>
+          <p className="text-sm text-gray-600 mb-4">
+            {typeof seasonalData.insights?.summary === 'string' 
+              ? seasonalData.insights.summary 
+              : JSON.stringify(seasonalData.insights?.summary)}
+          </p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -315,7 +323,11 @@ const PredictiveAnalytics: React.FC<PredictiveAnalyticsProps> = ({ className = '
 
           <div className="bg-white p-4 rounded-lg border">
             <h3 className="font-semibold mb-3">Preparation</h3>
-            <p className="text-sm text-gray-600">{seasonalData.insights?.preparation}</p>
+            <p className="text-sm text-gray-600">
+              {typeof seasonalData.insights?.preparation === 'string' 
+                ? seasonalData.insights.preparation 
+                : JSON.stringify(seasonalData.insights?.preparation)}
+            </p>
           </div>
         </div>
 

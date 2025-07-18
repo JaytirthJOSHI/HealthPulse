@@ -55,10 +55,200 @@ interface WaitingUser {
   timestamp: number;
 }
 
+// Enhanced collaborative features
+interface HealthGroup {
+  id: string;
+  name: string;
+  description: string;
+  category: 'disease' | 'wellness' | 'emergency' | 'local' | 'general';
+  diseaseType?: string;
+  location?: string;
+  members: string[];
+  messages: GroupMessage[];
+  createdAt: number;
+  isActive: boolean;
+}
+
+interface GroupMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  message: string;
+  messageType: 'text' | 'health_tip' | 'experience' | 'emergency' | 'support';
+  timestamp: string;
+  reactions?: string[];
+}
+
+interface HealthChallenge {
+  id: string;
+  title: string;
+  description: string;
+  category: 'fitness' | 'nutrition' | 'mental_health' | 'prevention' | 'recovery';
+  participants: string[];
+  progress: Record<string, number>;
+  startDate: number;
+  endDate: number;
+  isActive: boolean;
+}
+
+interface HealthMentor {
+  id: string;
+  mentorId: string;
+  menteeId: string;
+  specialty: string;
+  status: 'active' | 'completed' | 'pending';
+  startDate: number;
+  messages: MentorMessage[];
+}
+
+interface MentorMessage {
+  id: string;
+  senderId: string;
+  message: string;
+  messageType: 'advice' | 'question' | 'encouragement' | 'resource';
+  timestamp: string;
+}
+
+interface EmergencyAlert {
+  id: string;
+  userId: string;
+  location: string;
+  symptoms: string[];
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: 'active' | 'resolved' | 'escalated';
+  responders: string[];
+  createdAt: number;
+  resolvedAt?: number;
+}
+
+// In-memory storage for collaborative features
+let healthGroups = new Map<string, HealthGroup>();
+let healthChallenges = new Map<string, HealthChallenge>();
+let healthMentors = new Map<string, HealthMentor>();
+let emergencyAlerts = new Map<string, EmergencyAlert>();
+let userProfiles = new Map<string, {
+  id: string;
+  nickname: string;
+  location: string;
+  specialties: string[];
+  experience: 'beginner' | 'intermediate' | 'expert';
+  joinDate: number;
+}>();
+
+// Initialize default health groups
+function initializeHealthGroups() {
+  const defaultGroups = [
+    {
+      id: 'flu-support',
+      name: 'Flu Recovery Support',
+      description: 'Support group for people dealing with flu symptoms and recovery',
+      category: 'disease' as const,
+      diseaseType: 'flu',
+      members: [],
+      messages: [],
+      createdAt: Date.now(),
+      isActive: true
+    },
+    {
+      id: 'covid-support',
+      name: 'COVID-19 Support Network',
+      description: 'Community support for COVID-19 patients and caregivers',
+      category: 'disease' as const,
+      diseaseType: 'covid',
+      members: [],
+      messages: [],
+      createdAt: Date.now(),
+      isActive: true
+    },
+    {
+      id: 'mental-wellness',
+      name: 'Mental Wellness Circle',
+      description: 'Support for mental health and emotional well-being',
+      category: 'wellness' as const,
+      members: [],
+      messages: [],
+      createdAt: Date.now(),
+      isActive: true
+    },
+    {
+      id: 'emergency-support',
+      name: 'Emergency Response Network',
+      description: 'Real-time emergency coordination and support',
+      category: 'emergency' as const,
+      members: [],
+      messages: [],
+      createdAt: Date.now(),
+      isActive: true
+    },
+    {
+      id: 'prevention-tips',
+      name: 'Health Prevention Tips',
+      description: 'Share and discover preventive health measures',
+      category: 'general' as const,
+      members: [],
+      messages: [],
+      createdAt: Date.now(),
+      isActive: true
+    }
+  ];
+
+  defaultGroups.forEach(group => {
+    healthGroups.set(group.id, group);
+  });
+}
+
+// Initialize default health challenges
+function initializeHealthChallenges() {
+  const defaultChallenges = [
+    {
+      id: 'hydration-challenge',
+      title: '30-Day Hydration Challenge',
+      description: 'Stay hydrated for 30 days and track your water intake',
+      category: 'nutrition' as const,
+      participants: [],
+      progress: {},
+      startDate: Date.now(),
+      endDate: Date.now() + (30 * 24 * 60 * 60 * 1000),
+      isActive: true
+    },
+    {
+      id: 'walking-challenge',
+      title: '10K Steps Daily Challenge',
+      description: 'Walk 10,000 steps every day for better health',
+      category: 'fitness' as const,
+      participants: [],
+      progress: {},
+      startDate: Date.now(),
+      endDate: Date.now() + (21 * 24 * 60 * 60 * 1000),
+      isActive: true
+    },
+    {
+      id: 'stress-reduction',
+      title: 'Stress Reduction Challenge',
+      description: 'Practice stress-reduction techniques daily',
+      category: 'mental_health' as const,
+      participants: [],
+      progress: {},
+      startDate: Date.now(),
+      endDate: Date.now() + (14 * 24 * 60 * 60 * 1000),
+      isActive: true
+    }
+  ];
+
+  defaultChallenges.forEach(challenge => {
+    healthChallenges.set(challenge.id, challenge);
+  });
+}
+
+// Initialize collaborative features
+initializeHealthGroups();
+initializeHealthChallenges();
+
 // In-memory storage for chat (in production, you'd use KV or D1)
 let waitingUsers = new Map<string, WaitingUser>();
 let activeConnections = new Map<string, ChatConnection>();
 let connectedWebSockets = new Map<string, WebSocket>();
+let userToSocketMap = new Map<string, string>(); // Map userId to socketId
 
 // CORS headers
 const corsHeaders = {
@@ -72,7 +262,6 @@ const corsHeaders = {
 let symptomReports: any[] = [];
 let aiConsultations: any[] = [];
 let phoneNotifications: any[] = [];
-let emergencyAlerts: any[] = [];
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -82,7 +271,12 @@ export default {
 
     // Handle WebSocket upgrade
     if (request.headers.get('Upgrade') === 'websocket') {
-      return await handleWebSocketUpgrade(request, env, ctx);
+      // Only handle WebSocket upgrades for specific endpoints
+      if (path === '/' || path === '/chat' || path === '/ws') {
+        return await handleWebSocketUpgrade(request, env, ctx);
+      } else {
+        return new Response('WebSocket endpoint not found', { status: 404 });
+      }
     }
 
     // Handle CORS preflight
@@ -157,7 +351,7 @@ export default {
       }
 
       if (path === '/api/phone-ai/emergency-alert' && request.method === 'POST') {
-        return await handleEmergencyAlert(request);
+        return await handleEmergencySupport(request);
       }
 
       if (path === '/api/phone-ai/health-status' && request.method === 'GET') {
@@ -180,6 +374,52 @@ export default {
       if (path === '/api/analytics/seasonal-patterns' && request.method === 'GET') {
         return await handleSeasonalPatterns(request);
     }
+
+      // Collaborative Features endpoints
+      if (path === '/api/collaborative/groups' && request.method === 'GET') {
+        return await handleGetHealthGroups(request);
+      }
+
+      if (path === '/api/collaborative/groups' && request.method === 'POST') {
+        return await handleCreateHealthGroup(request);
+      }
+
+      if (path === '/api/collaborative/groups' && request.method === 'PUT') {
+        return await handleJoinHealthGroup(request);
+      }
+
+      // New polling endpoints for real-time updates
+      if (path.startsWith('/api/collaborative/groups/') && path.endsWith('/messages') && request.method === 'GET') {
+        return await handleGetGroupMessages(request);
+      }
+
+      if (path.startsWith('/api/collaborative/groups/') && path.endsWith('/poll') && request.method === 'GET') {
+        return await handlePollGroupUpdates(request);
+      }
+
+      if (path === '/api/collaborative/challenges' && request.method === 'GET') {
+        return await handleGetHealthChallenges(request);
+      }
+
+      if (path === '/api/collaborative/challenges' && request.method === 'POST') {
+        return await handleJoinHealthChallenge(request);
+      }
+
+      if (path === '/api/collaborative/mentors' && request.method === 'GET') {
+        return await handleGetMentors(request);
+      }
+
+      if (path === '/api/collaborative/mentors' && request.method === 'POST') {
+        return await handleRequestMentorshipAPI(request);
+      }
+
+      if (path === '/api/collaborative/emergency' && request.method === 'POST') {
+        return await handleEmergencySupport(request);
+      }
+
+      if (path === '/api/collaborative/emergency' && request.method === 'GET') {
+        return await handleGetEmergencyAlerts(request);
+      }
 
     // 404 for unknown routes
     return new Response(
@@ -213,46 +453,60 @@ export default {
 
 // WebSocket handling functions
 async function handleWebSocketUpgrade(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-  const upgradeHeader = request.headers.get('Upgrade');
-  if (upgradeHeader !== 'websocket') {
-    return new Response('Expected websocket', { status: 400 });
-  }
-
-  const webSocketPair = new WebSocketPair();
-  const [client, server] = Object.values(webSocketPair) as [WebSocket, WebSocket];
-
-  server.accept();
-
-  // Handle WebSocket messages
-  server.addEventListener('message', (event: any) => {
-    try {
-      const data = JSON.parse(event.data as string);
-      handleWebSocketMessage(server, data);
-    } catch (error) {
-      console.error('Error parsing WebSocket message:', error);
-      sendWebSocketMessage(server, { type: 'error', message: 'Invalid message format' });
+  try {
+    const upgradeHeader = request.headers.get('Upgrade');
+    if (upgradeHeader !== 'websocket') {
+      return new Response('Expected websocket', { status: 400 });
     }
-  });
 
-  // Handle WebSocket close
-  server.addEventListener('close', () => {
-    handleWebSocketClose(server);
-  });
+    const webSocketPair = new WebSocketPair();
+    const [client, server] = Object.values(webSocketPair) as [WebSocket, WebSocket];
 
-  // Handle WebSocket error
-  server.addEventListener('error', (error: any) => {
-    console.error('WebSocket error:', error);
-    handleWebSocketClose(server);
-  });
+    // Accept the WebSocket connection
+    server.accept();
 
-  return new Response(null, {
-    status: 101,
-    webSocket: client,
-  } as any);
+    // Store the WebSocket connection with a unique ID
+    const socketId = generateSocketId();
+    connectedWebSockets.set(socketId, server);
+
+    // Handle WebSocket messages
+    server.addEventListener('message', (event: any) => {
+      try {
+        const data = JSON.parse(event.data as string);
+        console.log('WebSocket message received:', data.type);
+        handleWebSocketMessage(server, data, socketId);
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+        sendWebSocketMessage(server, { type: 'error', message: 'Invalid message format' });
+      }
+    });
+
+    // Handle WebSocket close
+    server.addEventListener('close', () => {
+      console.log('WebSocket connection closed for socket:', socketId);
+      handleWebSocketClose(server);
+    });
+
+    // Handle WebSocket error
+    server.addEventListener('error', (error: any) => {
+      console.error('WebSocket error for socket:', socketId, error);
+      handleWebSocketClose(server);
+    });
+
+    console.log('WebSocket connection established for socket:', socketId);
+
+    return new Response(null, {
+      status: 101,
+      webSocket: client,
+    } as any);
+  } catch (error) {
+    console.error('Error in handleWebSocketUpgrade:', error);
+    return new Response('WebSocket upgrade failed', { status: 500 });
+  }
 }
 
-function handleWebSocketMessage(websocket: WebSocket, data: any) {
-  const socketId = generateSocketId();
+function handleWebSocketMessage(websocket: WebSocket, data: any, socketId: string) {
+  console.log(`Processing message type: ${data.type} for socket: ${socketId}`);
   
   switch (data.type) {
     case 'request_connection':
@@ -264,7 +518,29 @@ function handleWebSocketMessage(websocket: WebSocket, data: any) {
     case 'disconnect_from_chat':
       handleDisconnectFromChat(websocket, data, socketId);
       break;
+    case 'join_group':
+      handleJoinGroup(websocket, data, socketId);
+      break;
+    case 'send_group_message':
+      handleSendGroupMessage(websocket, data, socketId);
+      break;
+    case 'join_challenge':
+      handleJoinChallenge(websocket, data, socketId);
+      break;
+    case 'update_challenge_progress':
+      handleUpdateChallengeProgress(websocket, data, socketId);
+      break;
+    case 'request_mentorship':
+      handleRequestMentorship(websocket, data, socketId);
+      break;
+    case 'send_mentor_message':
+      handleSendMentorMessage(websocket, data, socketId);
+      break;
+    case 'emergency_alert':
+      handleEmergencyAlert(websocket, data, socketId);
+      break;
     default:
+      console.log(`Unknown message type: ${data.type}`);
       sendWebSocketMessage(websocket, { type: 'error', message: 'Unknown message type' });
   }
 }
@@ -272,8 +548,8 @@ function handleWebSocketMessage(websocket: WebSocket, data: any) {
 function handleRequestConnection(websocket: WebSocket, socketId: string) {
   console.log(`User ${socketId} requesting connection`);
   
-  // Store the WebSocket connection
-  connectedWebSockets.set(socketId, websocket);
+  // Store the WebSocket connection (already stored in handleWebSocketUpgrade)
+  // connectedWebSockets.set(socketId, websocket);
   
   // Clean up expired waiting users (older than 30 seconds)
   const now = Date.now();
@@ -337,9 +613,6 @@ function handleSendMessage(websocket: WebSocket, data: any, socketId: string) {
     return;
   }
 
-  // Determine the partner
-  const partnerId = connection.user1 === socketId ? connection.user2 : connection.user1;
-  
   // Add message to connection history
   const messageData: ChatMessage = {
     id: Date.now().toString(),
@@ -349,20 +622,11 @@ function handleSendMessage(websocket: WebSocket, data: any, socketId: string) {
   };
   connection.messages.push(messageData);
 
-  // Send message to partner
-  const partnerWebSocket = connectedWebSockets.get(partnerId);
-  if (partnerWebSocket) {
-    sendWebSocketMessage(partnerWebSocket, {
-      type: 'new_message',
-      connectionId: data.connectionId,
-      message: messageData
-    });
-  }
-
-  // Confirm message sent to sender
+  // Only send confirmation to sender - partner will see message when they poll/reconnect
   sendWebSocketMessage(websocket, {
     type: 'message_sent',
     connectionId: data.connectionId,
+    messageId: messageData.id,
     message: messageData
   });
 }
@@ -370,20 +634,15 @@ function handleSendMessage(websocket: WebSocket, data: any, socketId: string) {
 function handleDisconnectFromChat(websocket: WebSocket, data: any, socketId: string) {
   const connection = activeConnections.get(data.connectionId);
   if (connection) {
-    const partnerId = connection.user1 === socketId ? connection.user2 : connection.user1;
-    
-    // Notify partner
-    const partnerWebSocket = connectedWebSockets.get(partnerId);
-    if (partnerWebSocket) {
-      sendWebSocketMessage(partnerWebSocket, {
-        type: 'partner_disconnected',
-        connectionId: data.connectionId,
-        message: 'Your chat partner has disconnected'
-      });
-    }
-    
-    // Remove connection
+    // Remove connection - partner will be notified when they try to interact
     activeConnections.delete(data.connectionId);
+    
+    // Send confirmation to current user
+    sendWebSocketMessage(websocket, {
+      type: 'chat_disconnected',
+      connectionId: data.connectionId,
+      message: 'You have disconnected from the chat'
+    });
   }
 }
 
@@ -393,26 +652,25 @@ function handleWebSocketClose(websocket: WebSocket) {
     if (ws === websocket) {
       connectedWebSockets.delete(socketId);
       
+      // Remove from user to socket mapping
+      for (const [userId, mappedSocketId] of userToSocketMap.entries()) {
+        if (mappedSocketId === socketId) {
+          userToSocketMap.delete(userId);
+          console.log(`Removed user ${userId} mapping for socket ${socketId}`);
+          break;
+        }
+      }
+      
       // Remove from waiting users
       waitingUsers.delete(socketId);
       
-      // Handle disconnection from active connections
+      // Handle disconnection from active connections - just clean up, don't notify
       for (const [connectionId, connection] of activeConnections.entries()) {
         if (connection.user1 === socketId || connection.user2 === socketId) {
-          const partnerId = connection.user1 === socketId ? connection.user2 : connection.user1;
-          
-          // Notify partner
-          const partnerWebSocket = connectedWebSockets.get(partnerId);
-          if (partnerWebSocket) {
-            sendWebSocketMessage(partnerWebSocket, {
-              type: 'partner_disconnected',
-              connectionId,
-              message: 'Your chat partner has disconnected'
-            });
-          }
-          
-          // Remove connection
-          activeConnections.delete(connectionId);
+          // Mark connection as having a disconnected user but don't remove it
+          // The remaining user will be notified when they try to interact
+          console.log(`User ${socketId} disconnected from connection ${connectionId}`);
+          break;
         }
       }
       
@@ -424,10 +682,246 @@ function handleWebSocketClose(websocket: WebSocket) {
 
 function sendWebSocketMessage(websocket: WebSocket, data: any) {
   try {
-    websocket.send(JSON.stringify(data));
+    const message = JSON.stringify(data);
+    websocket.send(message);
+    console.log(`WebSocket message sent: ${data.type}`);
   } catch (error) {
     console.error('Error sending WebSocket message:', error);
   }
+}
+
+// Collaborative WebSocket handlers
+function handleJoinGroup(websocket: WebSocket, data: any, socketId: string) {
+  const { groupId, userId, userNickname } = data;
+  console.log(`User ${socketId} (${userNickname}) joining group ${groupId}`);
+  
+  const group = healthGroups.get(groupId);
+  
+  if (!group) {
+    console.log(`Group ${groupId} not found`);
+    sendWebSocketMessage(websocket, { type: 'error', message: 'Group not found' });
+    return;
+  }
+
+  // Map userId to socketId for current session only
+  userToSocketMap.set(userId, socketId);
+  console.log(`Mapped user ${userId} to socket ${socketId}`);
+
+  if (!group.members.includes(userId)) {
+    group.members.push(userId);
+    console.log(`User ${userNickname} added to group ${group.name}`);
+  }
+
+  // Send group info to user (including recent messages)
+  sendWebSocketMessage(websocket, {
+    type: 'group_joined',
+    groupId,
+    group: {
+      ...group,
+      messages: group.messages.slice(-20) // Send last 20 messages
+    }
+  });
+
+  // Note: Removed cross-context WebSocket access for other members
+  // Other users will see new members when they poll or reconnect
+  console.log(`User ${userNickname} successfully joined group ${group.name}`);
+}
+
+function handleSendGroupMessage(websocket: WebSocket, data: any, socketId: string) {
+  const { groupId, userId, userNickname, message, messageType } = data;
+  console.log(`User ${socketId} (${userNickname}) sending message to group ${groupId}: ${message}`);
+  
+  const group = healthGroups.get(groupId);
+  
+  if (!group) {
+    sendWebSocketMessage(websocket, { type: 'error', message: 'Group not found' });
+    return;
+  }
+
+  if (!group.members.includes(userId)) {
+    sendWebSocketMessage(websocket, { type: 'error', message: 'You are not a member of this group' });
+    return;
+  }
+
+  // Add message to group
+  const groupMessage = {
+    id: generateId(),
+    senderId: userId,
+    senderName: userNickname,
+    message,
+    messageType: messageType || 'text',
+    timestamp: new Date().toISOString()
+  };
+  group.messages.push(groupMessage);
+
+  console.log(`Message added to group ${group.name}, stored for ${group.members.length} members`);
+
+  // Only send confirmation to the current sender
+  // Other users will see the message when they poll or reconnect
+  sendWebSocketMessage(websocket, {
+    type: 'group_message_sent',
+    groupId,
+    messageId: groupMessage.id,
+    message: groupMessage
+  });
+  
+  console.log(`Message confirmation sent to sender ${userNickname}`);
+}
+
+function handleJoinChallenge(websocket: WebSocket, data: any, socketId: string) {
+  const { challengeId, userId, userNickname } = data;
+  const challenge = healthChallenges.get(challengeId);
+  
+  if (!challenge) {
+    sendWebSocketMessage(websocket, { type: 'error', message: 'Challenge not found' });
+    return;
+  }
+
+  if (!challenge.participants.includes(userId)) {
+    challenge.participants.push(userId);
+    challenge.progress[userId] = 0;
+  }
+
+  sendWebSocketMessage(websocket, {
+    type: 'challenge_joined',
+    challengeId,
+    challenge: challenge
+  });
+}
+
+function handleUpdateChallengeProgress(websocket: WebSocket, data: any, socketId: string) {
+  const { challengeId, userId, progress } = data;
+  const challenge = healthChallenges.get(challengeId);
+  
+  if (!challenge) {
+    sendWebSocketMessage(websocket, { type: 'error', message: 'Challenge not found' });
+    return;
+  }
+
+  challenge.progress[userId] = progress;
+
+  // Notify all participants
+  challenge.participants.forEach(participantId => {
+    const participantWebSocket = connectedWebSockets.get(participantId);
+    if (participantWebSocket) {
+      sendWebSocketMessage(participantWebSocket, {
+        type: 'challenge_progress_updated',
+        challengeId,
+        userId,
+        progress
+      });
+    }
+  });
+}
+
+function handleRequestMentorship(websocket: WebSocket, data: any, socketId: string) {
+  const { menteeId, menteeNickname, specialty, mentorId } = data;
+  
+  const mentorship: HealthMentor = {
+    id: generateId(),
+    mentorId: mentorId || 'available_mentor',
+    menteeId,
+    specialty,
+    status: 'pending',
+    startDate: Date.now(),
+    messages: []
+  };
+
+  healthMentors.set(mentorship.id, mentorship);
+
+  sendWebSocketMessage(websocket, {
+    type: 'mentorship_requested',
+    mentorshipId: mentorship.id,
+    mentorship: mentorship
+  });
+}
+
+function handleSendMentorMessage(websocket: WebSocket, data: any, socketId: string) {
+  const { mentorshipId, senderId, senderName, message, messageType } = data;
+  const mentorship = healthMentors.get(mentorshipId);
+  
+  if (!mentorship) {
+    sendWebSocketMessage(websocket, { type: 'error', message: 'Mentorship not found' });
+    return;
+  }
+
+  const mentorMessage: MentorMessage = {
+    id: generateId(),
+    senderId,
+    message,
+    messageType: messageType || 'advice',
+    timestamp: new Date().toISOString()
+  };
+  mentorship.messages.push(mentorMessage);
+
+  // Send to both mentor and mentee
+  const mentorWebSocket = connectedWebSockets.get(mentorship.mentorId);
+  const menteeWebSocket = connectedWebSockets.get(mentorship.menteeId);
+
+  if (mentorWebSocket) {
+    sendWebSocketMessage(mentorWebSocket, {
+      type: 'new_mentor_message',
+      mentorshipId,
+      message: mentorMessage
+    });
+  }
+
+  if (menteeWebSocket) {
+    sendWebSocketMessage(menteeWebSocket, {
+      type: 'new_mentor_message',
+      mentorshipId,
+      message: mentorMessage
+    });
+  }
+}
+
+function handleEmergencyAlert(websocket: WebSocket, data: any, socketId: string) {
+  const { userId, location, symptoms, severity, description } = data;
+  
+  const alert: EmergencyAlert = {
+    id: generateId(),
+    userId,
+    location,
+    symptoms,
+    severity: severity as 'low' | 'medium' | 'high' | 'critical',
+    status: 'active',
+    responders: [],
+    createdAt: Date.now()
+  };
+
+  emergencyAlerts.set(alert.id, alert);
+
+  // Notify emergency support group
+  const emergencyGroup = healthGroups.get('emergency-support');
+  if (emergencyGroup) {
+    const alertMessage: GroupMessage = {
+      id: generateId(),
+      senderId: 'system',
+      senderName: 'Emergency Alert',
+      message: `EMERGENCY: ${severity} case in ${location}. Symptoms: ${symptoms.join(', ')}. Description: ${description}`,
+      messageType: 'emergency',
+      timestamp: new Date().toISOString()
+    };
+    emergencyGroup.messages.push(alertMessage);
+
+    // Notify all emergency group members
+    emergencyGroup.members.forEach(memberId => {
+      const memberWebSocket = connectedWebSockets.get(memberId);
+      if (memberWebSocket) {
+        sendWebSocketMessage(memberWebSocket, {
+          type: 'emergency_alert',
+          alert: alert,
+          groupMessage: alertMessage
+        });
+      }
+    });
+  }
+
+  sendWebSocketMessage(websocket, {
+    type: 'emergency_alert_sent',
+    alertId: alert.id,
+    message: 'Emergency alert sent to support network'
+  });
 }
 
 function generateSocketId(): string {
@@ -779,74 +1273,7 @@ async function handleSendPhoneNotification(request: Request): Promise<Response> 
   }
 }
 
-async function handleEmergencyAlert(request: Request): Promise<Response> {
-  try {
-    const { phoneNumber, symptoms, location, severity, description } = await request.json() as any;
-    
-    const alert = {
-      id: generateId(),
-      phone_number: phoneNumber,
-      symptoms: symptoms,
-      location: location,
-      severity: severity,
-      description: description,
-      status: 'active',
-      created_at: new Date().toISOString()
-    };
 
-    emergencyAlerts.push(alert);
-
-    // Send immediate alert to external AI phone system
-    const emergencyMessage = `EMERGENCY ALERT: ${severity} case reported. Symptoms: ${symptoms.join(', ')}. Location: ${location}. Call: ${phoneNumber}`;
-    
-    const alertSent = await sendEmergencyNotification(phoneNumber, emergencyMessage, severity);
-
-    // Also create an AI consultation for immediate diagnosis
-    const consultation = {
-      id: generateId(),
-      phone_number: phoneNumber,
-      symptoms: symptoms,
-      urgency_level: 'critical',
-      consultation_type: 'emergency_diagnosis',
-      status: 'urgent',
-      emergency_alert_id: alert.id,
-      created_at: new Date().toISOString()
-    };
-
-    aiConsultations.push(consultation);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        alertId: alert.id,
-        consultationId: consultation.id,
-        emergencyContact: '+1 7703620543',
-        alertSent: alertSent,
-        message: 'Emergency alert sent to external AI phone system',
-        immediateAction: 'External AI diagnosis system has been notified'
-      }),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders,
-        },
-      }
-    );
-  } catch (error) {
-    console.error('Error in handleEmergencyAlert:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders,
-        },
-      }
-    );
-  }
-}
 
 async function handleGetPhoneHealthStatus(request: Request): Promise<Response> {
   try {
@@ -883,8 +1310,8 @@ async function handleGetPhoneHealthStatus(request: Request): Promise<Response> {
     const recommendations = getHealthRecommendations(healthScore);
 
     // Get active emergency alerts
-    const activeAlerts = emergencyAlerts.filter(a => 
-      a.phone_number === phoneNumber && a.status === 'active'
+    const activeAlerts = Array.from(emergencyAlerts.values()).filter(a => 
+      a.userId === phoneNumber && a.status === 'active'
     );
 
     return new Response(
@@ -1630,6 +2057,401 @@ async function handleGetRegions(): Promise<Response> {
   }
 }
 
+// Collaborative Features Handlers
+async function handleGetHealthGroups(request: Request): Promise<Response> {
+  try {
+    const groups = Array.from(healthGroups.values()).filter(group => group.isActive);
+    
+    return new Response(
+      JSON.stringify({
+        success: true,
+        groups: groups
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleGetHealthGroups:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleCreateHealthGroup(request: Request): Promise<Response> {
+  try {
+    const { name, description, category, diseaseType, location } = await request.json() as any;
+    
+    const group: HealthGroup = {
+      id: generateId(),
+      name,
+      description,
+      category,
+      diseaseType,
+      location,
+      members: [],
+      messages: [],
+      createdAt: Date.now(),
+      isActive: true
+    };
+
+    healthGroups.set(group.id, group);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        group: group
+      }),
+      {
+        status: 201,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleCreateHealthGroup:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleJoinHealthGroup(request: Request): Promise<Response> {
+  try {
+    const { groupId, userId, userNickname } = await request.json() as any;
+    
+    const group = healthGroups.get(groupId);
+    if (!group) {
+      return new Response(
+        JSON.stringify({ error: 'Group not found' }),
+        {
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          },
+        }
+      );
+    }
+
+    if (!group.members.includes(userId)) {
+      group.members.push(userId);
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'Successfully joined group',
+        group: group
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleJoinHealthGroup:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleGetHealthChallenges(request: Request): Promise<Response> {
+  try {
+    const challenges = Array.from(healthChallenges.values()).filter(challenge => challenge.isActive);
+    
+    return new Response(
+      JSON.stringify({
+        success: true,
+        challenges: challenges
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleGetHealthChallenges:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleJoinHealthChallenge(request: Request): Promise<Response> {
+  try {
+    const { challengeId, userId, userNickname } = await request.json() as any;
+    
+    const challenge = healthChallenges.get(challengeId);
+    if (!challenge) {
+      return new Response(
+        JSON.stringify({ error: 'Challenge not found' }),
+        {
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          },
+        }
+      );
+    }
+
+    if (!challenge.participants.includes(userId)) {
+      challenge.participants.push(userId);
+      challenge.progress[userId] = 0;
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'Successfully joined challenge',
+        challenge: challenge
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleJoinHealthChallenge:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleGetMentors(request: Request): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const specialty = url.searchParams.get('specialty');
+    
+    let mentors = Array.from(healthMentors.values());
+    if (specialty) {
+      mentors = mentors.filter(mentor => mentor.specialty === specialty);
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        mentors: mentors
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleGetMentors:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+
+
+async function handleRequestMentorshipAPI(request: Request): Promise<Response> {
+  try {
+    const { menteeId, menteeNickname, specialty, mentorId } = await request.json() as any;
+    
+    const mentorship: HealthMentor = {
+      id: generateId(),
+      mentorId: mentorId || 'available_mentor',
+      menteeId,
+      specialty,
+      status: 'pending',
+      startDate: Date.now(),
+      messages: []
+    };
+
+    healthMentors.set(mentorship.id, mentorship);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'Mentorship request sent',
+        mentorship: mentorship
+      }),
+      {
+        status: 201,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleRequestMentorshipAPI:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleEmergencySupport(request: Request): Promise<Response> {
+  try {
+    const { userId, location, symptoms, severity, description } = await request.json() as any;
+    
+    const alert: EmergencyAlert = {
+      id: generateId(),
+      userId,
+      location,
+      symptoms,
+      severity: severity as 'low' | 'medium' | 'high' | 'critical',
+      status: 'active',
+      responders: [],
+      createdAt: Date.now()
+    };
+
+    emergencyAlerts.set(alert.id, alert);
+
+    // Notify emergency support group
+    const emergencyGroup = healthGroups.get('emergency-support');
+    if (emergencyGroup) {
+      const alertMessage: GroupMessage = {
+        id: generateId(),
+        senderId: 'system',
+        senderName: 'Emergency Alert',
+        message: `EMERGENCY: ${severity} case in ${location}. Symptoms: ${symptoms.join(', ')}. Description: ${description}`,
+        messageType: 'emergency',
+        timestamp: new Date().toISOString()
+      };
+      emergencyGroup.messages.push(alertMessage);
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        alertId: alert.id,
+        message: 'Emergency alert sent to support network'
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleEmergencySupport:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleGetEmergencyAlerts(request: Request): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const status = url.searchParams.get('status') || 'active';
+    
+    const alerts = Array.from(emergencyAlerts.values()).filter(alert => alert.status === status);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        alerts: alerts
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleGetEmergencyAlerts:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
 // DEMO DATA GENERATION FOR DEVELOPMENT
 function generateDemoReports() {
   // Global locations with coordinates for comprehensive demo
@@ -1814,4 +2636,120 @@ function generateDemoReports() {
 // Populate demo data on startup (for development/demo)
 if (symptomReports.length === 0) {
   symptomReports = generateDemoReports();
+}
+
+// Polling endpoints for real-time updates without WebSocket cross-context issues
+async function handleGetGroupMessages(request: Request): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split('/');
+    const groupId = pathParts[pathParts.length - 2]; // Get groupId from /api/collaborative/groups/{groupId}/messages
+    const since = url.searchParams.get('since'); // ISO timestamp to get messages after this time
+    
+    const group = healthGroups.get(groupId);
+    if (!group) {
+      return new Response(
+        JSON.stringify({ error: 'Group not found' }),
+        {
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          },
+        }
+      );
+    }
+
+    let messages = group.messages;
+    
+    // Filter messages if 'since' parameter is provided
+    if (since) {
+      const sinceDate = new Date(since);
+      messages = messages.filter(msg => new Date(msg.timestamp) > sinceDate);
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        groupId: groupId,
+        messages: messages,
+        totalMembers: group.members.length,
+        lastUpdated: new Date().toISOString()
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleGetGroupMessages:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handlePollGroupUpdates(request: Request): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split('/');
+    const groupId = pathParts[pathParts.length - 2]; // Get groupId from /api/collaborative/groups/{groupId}/poll
+    
+    const group = healthGroups.get(groupId);
+    if (!group) {
+      return new Response(
+        JSON.stringify({ error: 'Group not found' }),
+        {
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          },
+        }
+      );
+    }
+
+    // Return group info with recent messages
+    return new Response(
+      JSON.stringify({
+        success: true,
+        group: {
+          ...group,
+          messages: group.messages.slice(-10) // Last 10 messages
+        },
+        hasNewMessages: group.messages.length > 0,
+        lastMessageTime: group.messages.length > 0 ? group.messages[group.messages.length - 1].timestamp : null,
+        lastUpdated: new Date().toISOString()
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handlePollGroupUpdates:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
 }

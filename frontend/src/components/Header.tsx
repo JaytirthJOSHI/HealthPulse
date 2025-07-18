@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Sun, Moon, Settings, Users } from 'lucide-react';
+import { Menu, X, Sun, Moon, Settings, Users, Heart } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { isFeatureEnabled } from '../config/features';
 
 interface HeaderProps {
   connectFeatureEnabled?: boolean;
   onToggleConnectFeature?: (enabled: boolean) => void;
+  onOpenCollaborativeFeatures?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
   connectFeatureEnabled = false, 
-  onToggleConnectFeature 
+  onToggleConnectFeature,
+  onOpenCollaborativeFeatures
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -61,6 +64,18 @@ const Header: React.FC<HeaderProps> = ({
 
           {/* Right side controls */}
           <div className="flex items-center space-x-2">
+            {/* Health Community Button */}
+            {isFeatureEnabled('COMMUNITY_ENABLED') && onOpenCollaborativeFeatures && (
+              <button
+                onClick={onOpenCollaborativeFeatures}
+                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg transition-all hover:scale-105 shadow-lg font-medium"
+                title="Open Health Community"
+              >
+                <Heart className="w-5 h-5" />
+                <span className="hidden sm:inline">Community</span>
+              </button>
+            )}
+
             {/* Connect Feature Toggle */}
             {onToggleConnectFeature && (
               <button
