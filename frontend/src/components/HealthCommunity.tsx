@@ -150,40 +150,77 @@ const HealthCommunity: React.FC<HealthCommunityProps> = ({ isVisible, onClose })
             const data = JSON.parse(event.data);
             console.log('WebSocket message received:', data);
             
-            if (data.type === 'group_joined' && data.group) {
-              // Set messages when joining a group
-              console.log('Setting group messages:', data.group.messages);
-              setGroupMessages(data.group.messages || []);
+            // Handle group joined with existing messages
+            if (data.type === 'group_joined') {
+              console.log('Group joined response:', data);
+              if (data.group && data.group.messages) {
+                console.log('Setting group messages from join response:', data.group.messages);
+                setGroupMessages(data.group.messages);
+              } else if (data.messages) {
+                console.log('Setting messages from direct messages field:', data.messages);
+                setGroupMessages(data.messages);
+              } else {
+                console.log('No messages in group join response, setting welcome message');
+                setGroupMessages([{
+                  id: 'welcome-' + Date.now(),
+                  senderId: 'system',
+                  senderName: 'System',
+                  message: 'Welcome to the group! Start the conversation.',
+                  messageType: 'text',
+                  timestamp: new Date().toISOString()
+                }]);
+              }
             }
             
-            if (data.type === 'new_group_message') {
-              console.log('New group message received:', data.message, 'from sender:', data.message.senderId, 'my userId:', userId);
-              // Add all messages from other users immediately
-              if (data.message.senderId !== userId) {
+            // Handle new incoming messages
+            if (data.type === 'new_group_message' || data.type === 'group_message') {
+              const message = data.message || data;
+              console.log('New group message received:', message, 'from sender:', message.senderId, 'my userId:', userId);
+              
+              // Add messages from other users (avoid duplicates)
+              if (message.senderId !== userId) {
                 console.log('Adding message from other user to chat');
                 setGroupMessages(prev => {
-                  const newMessages = [...prev, data.message];
-                  console.log('Updated messages with new message. Total messages:', newMessages.length);
-                  return newMessages;
+                  // Check if message already exists to avoid duplicates
+                  const exists = prev.some(m => m.id === message.id);
+                  if (!exists) {
+                    const newMessages = [...prev, message];
+                    console.log('Updated messages with new message. Total messages:', newMessages.length);
+                    return newMessages;
+                  }
+                  console.log('Message already exists, skipping duplicate');
+                  return prev;
                 });
               } else {
                 console.log('Ignoring message from self to prevent duplicates');
               }
             }
             
-            if (data.type === 'group_message_sent') {
-              // Message was successfully sent to server
+            // Handle message sent confirmation
+            if (data.type === 'group_message_sent' || data.type === 'message_sent') {
               console.log('Message sent successfully to server');
+              // Could update message status here if needed
             }
             
-            if (data.type === 'new_group_member') {
-              // Optionally show a notification when someone joins
-              console.log(`${data.userNickname} joined the group`);
+            // Handle new group member
+            if (data.type === 'new_group_member' || data.type === 'user_joined') {
+              const nickname = data.userNickname || data.nickname || 'Someone';
+              console.log(`${nickname} joined the group`);
+              // Optionally add a system message
+              setGroupMessages(prev => [...prev, {
+                id: 'join-' + Date.now(),
+                senderId: 'system',
+                senderName: 'System',
+                message: `${nickname} joined the group`,
+                messageType: 'system',
+                timestamp: new Date().toISOString()
+              }]);
             }
 
+            // Handle errors
             if (data.type === 'error') {
-              console.error('Server error:', data.message);
-              setConnectionError(data.message || 'Server error occurred');
+              console.error('Server error:', data.message || data.error);
+              setConnectionError(data.message || data.error || 'Server error occurred');
             }
           } catch (err) {
             console.error('Error parsing WebSocket message:', err);
@@ -243,20 +280,61 @@ const HealthCommunity: React.FC<HealthCommunityProps> = ({ isVisible, onClose })
     
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       console.log('Sending join_group message for:', group.name);
-      wsRef.current.send(JSON.stringify({
+      const joinMessage = {
         type: 'join_group',
         groupId: group.id,
         userId,
         userNickname
-      }));
+      };
+      console.log('Join message payload:', joinMessage);
+      wsRef.current.send(JSON.stringify(joinMessage));
+      
+      // Add a timeout to load messages from REST API if WebSocket doesn't respond
+      setTimeout(() => {
+        if (groupMessages.length === 0) {
+          console.log('No messages received via WebSocket, trying REST API fallback...');
+          loadGroupMessagesViaREST(group.id);
+        }
+      }, 2000);
     } else {
       console.log('WebSocket not ready, state:', wsRef.current?.readyState);
-      // Try to reconnect if needed
-      if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
-        console.log('Attempting to reconnect WebSocket...');
-        setLoading(true);
-        setTimeout(() => setLoading(false), 100);
+      // Load messages via REST API as fallback
+      loadGroupMessagesViaREST(group.id);
+    }
+  };
+
+  // Fallback method to load messages via REST API
+  const loadGroupMessagesViaREST = async (groupId: string) => {
+    try {
+      console.log('Loading messages via REST API for group:', groupId);
+      const response = await fetch(`https://healthpulse-api.healthsathi.workers.dev/api/collaborative/groups/${groupId}/messages`);
+      const data = await response.json();
+      if (data.success && data.messages) {
+        console.log('Loaded messages via REST:', data.messages);
+        setGroupMessages(data.messages);
+      } else {
+        console.log('No messages found via REST API');
+        // Add a welcome message to show the chat is working
+        setGroupMessages([{
+          id: 'welcome-' + Date.now(),
+          senderId: 'system',
+          senderName: 'System',
+          message: 'Welcome to the group! Start the conversation.',
+          messageType: 'text',
+          timestamp: new Date().toISOString()
+        }]);
       }
+    } catch (error) {
+      console.error('Error loading messages via REST:', error);
+      // Add a fallback message to show the chat is working
+      setGroupMessages([{
+        id: 'welcome-' + Date.now(),
+        senderId: 'system',
+        senderName: 'System',
+        message: 'Welcome to the group! Start the conversation.',
+        messageType: 'text',
+        timestamp: new Date().toISOString()
+      }]);
     }
   };
 
@@ -265,9 +343,10 @@ const HealthCommunity: React.FC<HealthCommunityProps> = ({ isVisible, onClose })
     if (messageInput.trim() && selectedGroup && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       console.log('Sending message to group:', selectedGroup.name, 'groupId:', selectedGroup.id);
       
-      // Create the message object
+      // Create the message object with unique ID
+      const messageId = `msg_${userId}_${Date.now()}`;
       const messageObj = {
-        id: Date.now().toString(),
+        id: messageId,
         senderId: userId,
         senderName: userNickname,
         message: messageInput.trim(),
@@ -291,11 +370,18 @@ const HealthCommunity: React.FC<HealthCommunityProps> = ({ isVisible, onClose })
         userId,
         userNickname,
         message: messageInput.trim(),
-        messageType: 'text'
+        messageType: 'text',
+        messageId: messageId // Include the ID for deduplication
       };
       console.log('Sending to server:', messageToSend);
       wsRef.current.send(JSON.stringify(messageToSend));
       setMessageInput('');
+      
+      // Fallback: If no confirmation after 3 seconds, show error
+      setTimeout(() => {
+        console.log('Checking if message was confirmed by server...');
+        // Could add logic here to check if message was confirmed
+      }, 3000);
     } else {
       console.log('Cannot send message:', {
         hasInput: !!messageInput.trim(),
@@ -303,6 +389,38 @@ const HealthCommunity: React.FC<HealthCommunityProps> = ({ isVisible, onClose })
         hasWebSocket: !!wsRef.current,
         readyState: wsRef.current?.readyState
       });
+    }
+  };
+
+  // Simulate message for testing (development only)
+  const simulateMessage = () => {
+    if (process.env.NODE_ENV === 'development' && selectedGroup) {
+      const simulatedMessage = {
+        id: 'sim-' + Date.now(),
+        senderId: 'other-user-123',
+        senderName: 'Other User',
+        message: 'Hello! This is a simulated message to test the chat functionality.',
+        messageType: 'text',
+        timestamp: new Date().toISOString()
+      };
+      console.log('Adding simulated message:', simulatedMessage);
+      setGroupMessages(prev => [...prev, simulatedMessage]);
+    }
+  };
+
+  // Test WebSocket sending (development only)
+  const testWebSocketSend = () => {
+    if (process.env.NODE_ENV === 'development' && wsRef.current && selectedGroup) {
+      const testPayload = {
+        type: 'test_message',
+        groupId: selectedGroup.id,
+        userId,
+        userNickname,
+        message: 'WebSocket test message',
+        timestamp: new Date().toISOString()
+      };
+      console.log('Sending test WebSocket message:', testPayload);
+      wsRef.current.send(JSON.stringify(testPayload));
     }
   };
 
@@ -437,6 +555,14 @@ const HealthCommunity: React.FC<HealthCommunityProps> = ({ isVisible, onClose })
                           <span className="text-xs text-red-500">({connectionError})</span>
                         )}
                       </div>
+                      {/* Debug Info (Development Only) */}
+                      {process.env.NODE_ENV === 'development' && (
+                        <div className="mt-2 text-xs text-gray-400">
+                          <div>Messages: {groupMessages.length}</div>
+                          <div>User ID: {userId}</div>
+                          <div>Group ID: {selectedGroup.id}</div>
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white dark:bg-gray-900">
                       {groupMessages.map(message => (
@@ -449,18 +575,66 @@ const HealthCommunity: React.FC<HealthCommunityProps> = ({ isVisible, onClose })
                               message.senderId === userId
                                 ? 'bg-blue-500 text-white'
                                 : message.senderId === 'system'
-                                ? 'bg-gray-100 text-gray-700'
-                                : 'bg-gray-100 text-gray-800'
+                                ? 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                             }`}
                           >
                             <div className="font-medium text-xs mb-1">{message.senderName}</div>
-                            {message.message}
+                            <div>{message.message}</div>
+                            {process.env.NODE_ENV === 'development' && (
+                              <div className="text-xs opacity-50 mt-1">ID: {message.id}</div>
+                            )}
                           </div>
                         </div>
                       ))}
                       <div ref={messagesEndRef} />
                     </div>
-                    <div className="p-4 border-t border-gray-200">
+                    <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                      {/* Test Message Buttons (Development Only) */}
+                      {process.env.NODE_ENV === 'development' && (
+                        <div className="mb-3 flex space-x-2">
+                          <button
+                            onClick={() => {
+                              const testMessage = {
+                                id: 'test-' + Date.now(),
+                                senderId: 'test-user',
+                                senderName: 'Test User',
+                                message: 'This is a test message to verify the chat UI is working',
+                                messageType: 'text',
+                                timestamp: new Date().toISOString()
+                              };
+                              setGroupMessages(prev => [...prev, testMessage]);
+                            }}
+                            className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded"
+                          >
+                            Add Test Message
+                          </button>
+                          <button
+                            onClick={() => setGroupMessages([])}
+                            className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded"
+                          >
+                            Clear Messages
+                          </button>
+                          <button
+                            onClick={() => loadGroupMessagesViaREST(selectedGroup.id)}
+                            className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded"
+                          >
+                            Reload via API
+                          </button>
+                          <button
+                            onClick={simulateMessage}
+                            className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded"
+                          >
+                            Simulate Message
+                          </button>
+                          <button
+                            onClick={testWebSocketSend}
+                            className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded"
+                          >
+                            Test WebSocket
+                          </button>
+                        </div>
+                      )}
                       <div className="flex space-x-2">
                         <input
                           type="text"
@@ -468,11 +642,11 @@ const HealthCommunity: React.FC<HealthCommunityProps> = ({ isVisible, onClose })
                           onChange={(e) => setMessageInput(e.target.value)}
                           onKeyPress={handleKeyPress}
                           placeholder="Type a message..."
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                         />
                         <button
                           onClick={sendMessage}
-                          disabled={!messageInput.trim()}
+                          disabled={!messageInput.trim() || connectionStatus !== 'connected'}
                           className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
                         >
                           <Send size={16} />
