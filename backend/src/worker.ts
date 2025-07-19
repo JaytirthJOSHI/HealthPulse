@@ -1,5 +1,10 @@
+/// <reference types="@cloudflare/workers-types" />
+import { createClient } from '@supabase/supabase-js';
+
 interface Env {
-  FRONTEND_URL: string;
+  SUPABASE_URL: string;
+  SUPABASE_ANON_KEY: string;
+  MESSAGES_KV: KVNamespace;
 }
 
 // Cloudflare Workers types
@@ -7,12 +12,10 @@ declare global {
   interface ExecutionContext {
     waitUntil(promise: Promise<any>): void;
     passThroughOnException(): void;
-  }
-  
-  // WebSocket types for Cloudflare Workers
-  interface WebSocketPair {
-    0: WebSocket;
-    1: WebSocket;
+    status?: number;
+    statusText?: string;
+    headers?: Record<string, string>;
+    webSocket?: WebSocket;
   }
   
   interface WebSocket {
@@ -21,18 +24,6 @@ declare global {
     send(data: string | ArrayBuffer): void;
     close(code?: number, reason?: string): void;
   }
-  
-  interface ResponseInit {
-    status?: number;
-    statusText?: string;
-    headers?: Record<string, string>;
-    webSocket?: WebSocket;
-  }
-  
-  // WebSocket constructor
-  var WebSocketPair: {
-    new(): [WebSocket, WebSocket];
-  };
 }
 
 // WebSocket connection management
@@ -112,13 +103,17 @@ interface MentorMessage {
 interface EmergencyAlert {
   id: string;
   userId: string;
-  location: string;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
   symptoms: string[];
   severity: 'low' | 'medium' | 'high' | 'critical';
   status: 'active' | 'resolved' | 'escalated';
   responders: string[];
   createdAt: number;
   resolvedAt?: number;
+  phone_number: string;
 }
 
 // In-memory storage for collaborative features
@@ -136,7 +131,7 @@ let userProfiles = new Map<string, {
 }>();
 
 // Initialize default health groups
-function initializeHealthGroups() {
+function initializeHealthGroups(env: Env) {
   const defaultGroups = [
     {
       id: 'flu-support',
@@ -326,7 +321,7 @@ function initializeHealthChallenges() {
 }
 
 // Initialize collaborative features
-initializeHealthGroups();
+// initializeHealthGroups(); // This will be called inside the fetch handler
 initializeHealthChallenges();
 
 // In-memory storage for chat (in production, you'd use KV or D1)
@@ -354,172 +349,221 @@ let phoneNotifications: any[] = [];
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     try {
-    const url = new URL(request.url);
-    const path = url.pathname;
-
-    // Handle WebSocket upgrade
-    if (request.headers.get('Upgrade') === 'websocket') {
-      // Only handle WebSocket upgrades for specific endpoints
-      if (path === '/' || path === '/chat' || path === '/ws') {
-        return await handleWebSocketUpgrade(request, env, ctx);
-      } else {
-        return new Response('WebSocket endpoint not found', { status: 404 });
+      // Initialize health groups if not already done
+      if (healthGroups.size === 0) {
+        initializeHealthGroups(env);
       }
-    }
+      
+      const url = new URL(request.url);
+      const path = url.pathname;
+      
+      console.log('Request path:', path);
+      console.log('Upgrade header:', request.headers.get('Upgrade'));
+      console.log('Connection header:', request.headers.get('Connection'));
 
-    // Handle CORS preflight
-    if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        status: 200,
-        headers: corsHeaders,
-      });
-    }
+      // Handle WebSocket upgrade
+      const upgradeHeader = request.headers.get('Upgrade');
+      const connectionHeader = request.headers.get('Connection');
+      const secWebSocketVersion = request.headers.get('Sec-WebSocket-Version');
+      const secWebSocketKey = request.headers.get('Sec-WebSocket-Key');
+      
+      console.log('Request method:', request.method);
+      console.log('Request path:', path);
+      console.log('Upgrade header:', upgradeHeader);
+      console.log('Connection header:', connectionHeader);
+      console.log('Sec-WebSocket-Version:', secWebSocketVersion);
+      console.log('Sec-WebSocket-Key:', secWebSocketKey);
+      
+      // Check for WebSocket upgrade
+      const isWebSocketUpgrade = upgradeHeader && 
+                                 upgradeHeader.toLowerCase() === 'websocket' && 
+                                 connectionHeader && 
+                                 connectionHeader.toLowerCase().includes('upgrade');
+      
+      console.log('Is WebSocket upgrade:', isWebSocketUpgrade);
+      
+      if (isWebSocketUpgrade) {
+        console.log('WebSocket upgrade requested for path:', path);
+        // Only handle WebSocket upgrades for specific endpoints
+        if (path === '/' || path === '/chat' || path === '/ws') {
+          console.log('Handling WebSocket upgrade for path:', path);
+          return await handleWebSocketUpgrade(request, env, ctx);
+        } else {
+          console.log('WebSocket endpoint not found for path:', path);
+          return new Response('WebSocket endpoint not found', { status: 404 });
+        }
+      }
 
-    // Health check endpoint
-    if (path === '/health' && request.method === 'GET') {
-      return new Response(
-        JSON.stringify({
-          status: 'OK',
-          timestamp: new Date().toISOString(),
-          service: 'HealthPulse Backend (Cloudflare Workers)',
-          environment: 'production',
-            phoneAISystem: '+1 7703620543'
-        }),
-        {
+      // Handle CORS preflight
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
           status: 200,
+          headers: corsHeaders,
+        });
+      }
+
+      // Health check endpoint
+      if (path === '/health' && request.method === 'GET') {
+        return new Response(
+          JSON.stringify({
+            status: 'OK',
+            timestamp: new Date().toISOString(),
+            service: 'HealthPulse Backend (Cloudflare Workers)',
+            environment: 'production',
+              phoneAISystem: '+1 7703620543'
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders,
+            },
+          }
+        );
+      }
+
+      // Chat endpoint for WebSocket connections
+      if (path === '/chat' && request.method === 'GET') {
+        return new Response(
+          JSON.stringify({
+            message: 'WebSocket endpoint - use WebSocket protocol to connect',
+            status: 'available'
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders,
+            },
+          }
+        );
+      }
+
+      // REST API endpoints
+      if (path === '/api/reports' && request.method === 'POST') {
+          return await handleCreateReport(request);
+      }
+
+      if (path === '/api/reports' && request.method === 'GET') {
+          return await handleGetReports();
+        }
+
+        if (path === '/api/health-aggregates' && request.method === 'GET') {
+          return await handleGetHealthAggregates();
+        }
+
+        // Add missing endpoints
+        if (path === '/api/who-data' && request.method === 'GET') {
+          return await handleGetWHOData();
+        }
+
+        if (path === '/api/health-tips' && request.method === 'GET') {
+          return await handleGetHealthTips();
+      }
+
+      if (path === '/api/diseases' && request.method === 'GET') {
+          return await handleGetDiseases();
+      }
+
+      if (path === '/api/regions' && request.method === 'GET') {
+          return await handleGetRegions();
+        }
+
+        // Phone AI Integration endpoints
+        if (path === '/api/phone-ai/voice-report' && request.method === 'POST') {
+          return await handleVoiceSymptomReport(request);
+        }
+
+        if (path === '/api/phone-ai/health-consultation' && request.method === 'POST') {
+          return await handlePhoneAIConsultation(request);
+        }
+
+        if (path === '/api/phone-ai/send-notification' && request.method === 'POST') {
+          return await handleSendPhoneNotification(request);
+        }
+
+        if (path === '/api/phone-ai/emergency-alert' && request.method === 'POST') {
+          return await handleEmergencySupport(request);
+        }
+
+        if (path === '/api/phone-ai/health-status' && request.method === 'GET') {
+          return await handleGetPhoneHealthStatus(request);
+        }
+
+        // Predictive Analytics endpoints
+        if (path === '/api/analytics/outbreak-prediction' && request.method === 'GET') {
+          return await handleOutbreakPrediction(request);
+        }
+
+        if (path === '/api/analytics/health-trends' && request.method === 'GET') {
+          return await handleHealthTrends(request);
+        }
+
+        if (path === '/api/analytics/risk-assessment' && request.method === 'POST') {
+          return await handleRiskAssessment(request);
+        }
+
+        if (path === '/api/analytics/seasonal-patterns' && request.method === 'GET') {
+          return await handleSeasonalPatterns(request);
+      }
+
+        // Collaborative Features endpoints
+        if (path === '/api/collaborative/groups' && request.method === 'GET') {
+          return await handleGetHealthGroups(request);
+        }
+
+        if (path === '/api/collaborative/groups' && request.method === 'POST') {
+          return await handleCreateHealthGroup(request);
+        }
+
+        if (path === '/api/collaborative/groups' && request.method === 'PUT') {
+          return await handleJoinHealthGroup(request);
+        }
+
+        // New polling endpoints for real-time updates
+        if (path.startsWith('/api/collaborative/groups/') && path.endsWith('/messages') && request.method === 'GET') {
+          return await handleGetGroupMessages(request);
+        }
+
+        if (path.startsWith('/api/collaborative/groups/') && path.endsWith('/poll') && request.method === 'GET') {
+          return await handlePollGroupUpdates(request);
+        }
+
+        if (path === '/api/collaborative/challenges' && request.method === 'GET') {
+          return await handleGetHealthChallenges(request);
+        }
+
+        if (path === '/api/collaborative/challenges' && request.method === 'POST') {
+          return await handleJoinHealthChallenge(request);
+        }
+
+        if (path === '/api/collaborative/mentors' && request.method === 'GET') {
+          return await handleGetMentors(request);
+        }
+
+        if (path === '/api/collaborative/mentors' && request.method === 'POST') {
+          return await handleRequestMentorshipAPI(request);
+        }
+
+        if (path === '/api/collaborative/emergency' && request.method === 'POST') {
+          return await handleEmergencySupport(request);
+        }
+
+        if (path === '/api/collaborative/emergency' && request.method === 'GET') {
+          return await handleGetEmergencyAlerts(request);
+        }
+
+      // 404 for unknown routes
+      return new Response(
+        JSON.stringify({ error: 'Not found' }),
+        {
+          status: 404,
           headers: {
             'Content-Type': 'application/json',
             ...corsHeaders,
           },
         }
       );
-    }
-
-    // REST API endpoints
-    if (path === '/api/reports' && request.method === 'POST') {
-        return await handleCreateReport(request);
-    }
-
-    if (path === '/api/reports' && request.method === 'GET') {
-        return await handleGetReports();
-      }
-
-      if (path === '/api/health-aggregates' && request.method === 'GET') {
-        return await handleGetHealthAggregates();
-      }
-
-      // Add missing endpoints
-      if (path === '/api/who-data' && request.method === 'GET') {
-        return await handleGetWHOData();
-      }
-
-      if (path === '/api/health-tips' && request.method === 'GET') {
-        return await handleGetHealthTips();
-    }
-
-    if (path === '/api/diseases' && request.method === 'GET') {
-        return await handleGetDiseases();
-    }
-
-    if (path === '/api/regions' && request.method === 'GET') {
-        return await handleGetRegions();
-      }
-
-      // Phone AI Integration endpoints
-      if (path === '/api/phone-ai/voice-report' && request.method === 'POST') {
-        return await handleVoiceSymptomReport(request);
-      }
-
-      if (path === '/api/phone-ai/health-consultation' && request.method === 'POST') {
-        return await handlePhoneAIConsultation(request);
-      }
-
-      if (path === '/api/phone-ai/send-notification' && request.method === 'POST') {
-        return await handleSendPhoneNotification(request);
-      }
-
-      if (path === '/api/phone-ai/emergency-alert' && request.method === 'POST') {
-        return await handleEmergencySupport(request);
-      }
-
-      if (path === '/api/phone-ai/health-status' && request.method === 'GET') {
-        return await handleGetPhoneHealthStatus(request);
-      }
-
-      // Predictive Analytics endpoints
-      if (path === '/api/analytics/outbreak-prediction' && request.method === 'GET') {
-        return await handleOutbreakPrediction(request);
-      }
-
-      if (path === '/api/analytics/health-trends' && request.method === 'GET') {
-        return await handleHealthTrends(request);
-      }
-
-      if (path === '/api/analytics/risk-assessment' && request.method === 'POST') {
-        return await handleRiskAssessment(request);
-      }
-
-      if (path === '/api/analytics/seasonal-patterns' && request.method === 'GET') {
-        return await handleSeasonalPatterns(request);
-    }
-
-      // Collaborative Features endpoints
-      if (path === '/api/collaborative/groups' && request.method === 'GET') {
-        return await handleGetHealthGroups(request);
-      }
-
-      if (path === '/api/collaborative/groups' && request.method === 'POST') {
-        return await handleCreateHealthGroup(request);
-      }
-
-      if (path === '/api/collaborative/groups' && request.method === 'PUT') {
-        return await handleJoinHealthGroup(request);
-      }
-
-      // New polling endpoints for real-time updates
-      if (path.startsWith('/api/collaborative/groups/') && path.endsWith('/messages') && request.method === 'GET') {
-        return await handleGetGroupMessages(request);
-      }
-
-      if (path.startsWith('/api/collaborative/groups/') && path.endsWith('/poll') && request.method === 'GET') {
-        return await handlePollGroupUpdates(request);
-      }
-
-      if (path === '/api/collaborative/challenges' && request.method === 'GET') {
-        return await handleGetHealthChallenges(request);
-      }
-
-      if (path === '/api/collaborative/challenges' && request.method === 'POST') {
-        return await handleJoinHealthChallenge(request);
-      }
-
-      if (path === '/api/collaborative/mentors' && request.method === 'GET') {
-        return await handleGetMentors(request);
-      }
-
-      if (path === '/api/collaborative/mentors' && request.method === 'POST') {
-        return await handleRequestMentorshipAPI(request);
-      }
-
-      if (path === '/api/collaborative/emergency' && request.method === 'POST') {
-        return await handleEmergencySupport(request);
-      }
-
-      if (path === '/api/collaborative/emergency' && request.method === 'GET') {
-        return await handleGetEmergencyAlerts(request);
-      }
-
-    // 404 for unknown routes
-    return new Response(
-      JSON.stringify({ error: 'Not found' }),
-      {
-        status: 404,
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders,
-        },
-      }
-    );
     } catch (error) {
       console.error('Worker error:', error);
       return new Response(
@@ -562,7 +606,7 @@ async function handleWebSocketUpgrade(request: Request, env: Env, ctx: Execution
       try {
         const data = JSON.parse(event.data as string);
         console.log('WebSocket message received:', data.type);
-        handleWebSocketMessage(server, data, socketId);
+        handleWebSocketMessage(server, data, socketId, env);
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
         sendWebSocketMessage(server, { type: 'error', message: 'Invalid message format' });
@@ -593,44 +637,50 @@ async function handleWebSocketUpgrade(request: Request, env: Env, ctx: Execution
   }
 }
 
-function handleWebSocketMessage(websocket: WebSocket, data: any, socketId: string) {
+function handleWebSocketMessage(websocket: WebSocket, data: any, socketId: string, env: Env) {
   console.log(`Processing message type: ${data.type} for socket: ${socketId}`);
   
-  switch (data.type) {
-    case 'request_connection':
-      handleRequestConnection(websocket, socketId);
-      break;
-    case 'send_message':
-      handleSendMessage(websocket, data, socketId);
-      break;
-    case 'disconnect_from_chat':
-      handleDisconnectFromChat(websocket, data, socketId);
-      break;
-    case 'join_group':
-      handleJoinGroup(websocket, data, socketId);
-      break;
-    case 'send_group_message':
-      handleSendGroupMessage(websocket, data, socketId);
-      break;
-    case 'join_challenge':
-      handleJoinChallenge(websocket, data, socketId);
-      break;
-    case 'update_challenge_progress':
-      handleUpdateChallengeProgress(websocket, data, socketId);
-      break;
-    case 'request_mentorship':
-      handleRequestMentorship(websocket, data, socketId);
-      break;
-    case 'send_mentor_message':
-      handleSendMentorMessage(websocket, data, socketId);
-      break;
-    case 'emergency_alert':
-      handleEmergencyAlert(websocket, data, socketId);
-      break;
-    default:
-      console.log(`Unknown message type: ${data.type}`);
-      sendWebSocketMessage(websocket, { type: 'error', message: 'Unknown message type' });
-  }
+  // Use a self-invoking async function to handle async operations in the event listener
+  (async () => {
+    switch (data.type) {
+      case 'request_connection':
+        handleRequestConnection(websocket, socketId);
+        break;
+      case 'send_message':
+        handleSendMessage(websocket, data, socketId);
+        break;
+      case 'disconnect_from_chat':
+        handleDisconnectFromChat(websocket, data, socketId);
+        break;
+      case 'join_group':
+        await handleJoinGroup(websocket, data, socketId, env);
+        break;
+      case 'send_group_message':
+        await handleSendGroupMessage(websocket, data, socketId, env);
+        break;
+      case 'join_challenge':
+        handleJoinChallenge(websocket, data, socketId);
+        break;
+      case 'update_challenge_progress':
+        handleUpdateChallengeProgress(websocket, data, socketId);
+        break;
+      case 'request_mentorship':
+        handleRequestMentorship(websocket, data, socketId);
+        break;
+      case 'send_mentor_message':
+        handleSendMentorMessage(websocket, data, socketId);
+        break;
+      case 'emergency_alert':
+        handleEmergencyAlert(websocket, data, socketId);
+        break;
+      default:
+        console.log(`Unknown message type: ${data.type}`);
+        sendWebSocketMessage(websocket, { type: 'error', message: 'Unknown message type' });
+    }
+  })().catch(err => {
+    console.error(`Error in async WebSocket message handler for type ${data.type}:`, err);
+    sendWebSocketMessage(websocket, { type: 'error', message: 'Internal server error processing message' });
+  });
 }
 
 function handleRequestConnection(websocket: WebSocket, socketId: string) {
@@ -784,11 +834,11 @@ function sendWebSocketMessage(websocket: WebSocket, data: any) {
 }
 
 // Collaborative WebSocket handlers
-function handleJoinGroup(websocket: WebSocket, data: any, socketId: string) {
+async function handleJoinGroup(websocket: WebSocket, data: any, socketId: string, env: Env) {
   const { groupId, userId, userNickname } = data;
   console.log(`User ${socketId} (${userNickname}) joining group ${groupId}`);
   
-  const group = healthGroups.get(groupId);
+  let group = healthGroups.get(groupId);
   
   if (!group) {
     console.log(`Group ${groupId} not found`);
@@ -810,13 +860,31 @@ function handleJoinGroup(websocket: WebSocket, data: any, socketId: string) {
     console.log(`User ${userNickname} added to group ${group.name}`);
   }
 
-  // Send group info to user (including recent messages)
+  // Get message history from KV store
+  let messages = [];
+  try {
+    const kvMessages = await env.MESSAGES_KV.get(groupId);
+    if (kvMessages) {
+      messages = JSON.parse(kvMessages);
+    } else {
+      // If KV is empty, seed it with the demo messages from memory
+      console.log(`KV store for group ${groupId} is empty, seeding with demo messages.`);
+      messages = group.messages;
+      await env.MESSAGES_KV.put(groupId, JSON.stringify(messages));
+    }
+  } catch (err) {
+    console.error(`Failed to get messages from KV for group ${groupId}:`, err);
+    // Fallback to in-memory demo messages on error
+    messages = group.messages;
+  }
+
+  // Send group info to user (including recent messages from KV)
   sendWebSocketMessage(websocket, {
     type: 'group_joined',
     groupId,
     group: {
       ...group,
-      messages: group.messages.slice(-20) // Send last 20 messages
+      messages: messages.slice(-50) // Send last 50 messages
     }
   });
 
@@ -853,7 +921,7 @@ function handleJoinGroup(websocket: WebSocket, data: any, socketId: string) {
   }
 }
 
-function handleSendGroupMessage(websocket: WebSocket, data: any, socketId: string) {
+async function handleSendGroupMessage(websocket: WebSocket, data: any, socketId: string, env: Env) {
   const { groupId, userId, userNickname, message, messageType } = data;
   console.log(`User ${socketId} (${userNickname}) sending message to group ${groupId}: ${message}`);
   
@@ -869,7 +937,7 @@ function handleSendGroupMessage(websocket: WebSocket, data: any, socketId: strin
     return;
   }
 
-  // Add message to group
+  // Create the new message object
   const groupMessage = {
     id: generateId(),
     senderId: userId,
@@ -878,14 +946,24 @@ function handleSendGroupMessage(websocket: WebSocket, data: any, socketId: strin
     messageType: messageType || 'text',
     timestamp: new Date().toISOString()
   };
-  group.messages.push(groupMessage);
 
-  // Keep only the last 50 messages to prevent memory overflow
-  if (group.messages.length > 50) {
-    group.messages = group.messages.slice(-50);
+  // Get existing messages from KV, add new one, and save back
+  try {
+    const kvMessages = await env.MESSAGES_KV.get(groupId);
+    let messages = kvMessages ? JSON.parse(kvMessages) : [];
+    messages.push(groupMessage);
+
+    // Keep only the last 50 messages to prevent memory overflow
+    if (messages.length > 50) {
+      messages = messages.slice(-50);
+    }
+    
+    await env.MESSAGES_KV.put(groupId, JSON.stringify(messages));
+    console.log(`Message saved to KV for group ${group.name}, now has ${messages.length} messages`);
+  } catch (err) {
+    console.error(`Failed to save message to KV for group ${groupId}:`, err);
+    // Proceed to broadcast even if KV fails, but log the error
   }
-
-  console.log(`Message added to group ${group.name}, stored for ${group.members.length} members (${group.messages.length} total messages)`);
 
   // Send confirmation to the sender
   sendWebSocketMessage(websocket, {
@@ -1059,7 +1137,8 @@ function handleEmergencyAlert(websocket: WebSocket, data: any, socketId: string)
     severity: severity as 'low' | 'medium' | 'high' | 'critical',
     status: 'active',
     responders: [],
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    phone_number: '+17703620543' // Example phone number
   };
 
   emergencyAlerts.set(alert.id, alert);
@@ -1071,7 +1150,7 @@ function handleEmergencyAlert(websocket: WebSocket, data: any, socketId: string)
       id: generateId(),
       senderId: 'system',
       senderName: 'Emergency Alert',
-      message: `EMERGENCY: ${severity} case in ${location}. Symptoms: ${symptoms.join(', ')}. Description: ${description}`,
+      message: `EMERGENCY: ${severity} case in ${location}. Symptoms: ${symptoms.join(', ')}.`,
       messageType: 'emergency',
       timestamp: new Date().toISOString()
     };
@@ -1098,7 +1177,7 @@ function handleEmergencyAlert(websocket: WebSocket, data: any, socketId: string)
 }
 
 function generateSocketId(): string {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  return `socket_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
 // Handler functions
@@ -1106,24 +1185,20 @@ async function handleCreateReport(request: Request): Promise<Response> {
   try {
     const report = await request.json() as any;
     
-    const newReport = {
+    // Store in-memory
+    symptomReports.push({
+      ...report,
       id: generateId(),
-        nickname: report.nickname,
-        country: report.country,
-        pin_code: report.pinCode,
-        symptoms: report.symptoms,
-        illness_type: report.illnessType,
-        severity: report.severity,
-        latitude: report.latitude,
-        longitude: report.longitude,
-      phone_number: report.phoneNumber,
       created_at: new Date().toISOString()
-    };
+    });
 
-    symptomReports.push(newReport);
+    // Optionally, you can still send to Supabase asynchronously
+    // request.waitUntil(
+    //   supabase.from('symptom_reports').insert([{ ... }])
+    // );
 
     return new Response(
-      JSON.stringify({ success: true, data: newReport }),
+      JSON.stringify({ success: true, data: report }),
       {
         status: 201,
         headers: {
@@ -1135,7 +1210,7 @@ async function handleCreateReport(request: Request): Promise<Response> {
   } catch (error) {
     console.error('Error in handleCreateReport:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Failed to create report' }),
       {
         status: 500,
         headers: {
@@ -1149,8 +1224,13 @@ async function handleCreateReport(request: Request): Promise<Response> {
 
 async function handleGetReports(): Promise<Response> {
   try {
+    // Return from in-memory store
+    const sortedReports = [...symptomReports].sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
     return new Response(
-      JSON.stringify(symptomReports),
+      JSON.stringify(sortedReports.slice(0, 100)),
       {
         status: 200,
         headers: {
@@ -1176,20 +1256,23 @@ async function handleGetReports(): Promise<Response> {
 
 async function handleGetHealthAggregates(): Promise<Response> {
   try {
-    const totalReports = symptomReports.length;
+    const reportsData = symptomReports;
+    
+    // Calculate aggregates
+    const totalReports = reportsData.length;
     
     // Get reports in last 24 hours
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const reports24h = symptomReports.filter(r => {
+    const reports24h = reportsData.filter(r => {
       const reportDate = new Date(r.created_at);
       return reportDate > twentyFourHoursAgo;
     }).length;
 
     // Get unique countries
-    const uniqueCountries = new Set(symptomReports.map((report: any) => report.country)).size;
+    const uniqueCountries = new Set(reportsData.map((report: any) => report.country)).size;
 
     // Get illness type distribution
-    const illnessCounts = symptomReports.reduce((acc: any, report: any) => {
+    const illnessCounts = reportsData.reduce((acc: any, report: any) => {
       const type = report.illness_type || 'Unknown';
       acc[type] = (acc[type] || 0) + 1;
       return acc;
@@ -1484,7 +1567,7 @@ async function handleGetPhoneHealthStatus(request: Request): Promise<Response> {
 
     // Get active emergency alerts
     const activeAlerts = Array.from(emergencyAlerts.values()).filter(a => 
-      a.userId === phoneNumber && a.status === 'active'
+      a.phone_number === phoneNumber && a.status === 'active'
     );
 
     return new Response(
@@ -1525,7 +1608,7 @@ async function handleGetPhoneHealthStatus(request: Request): Promise<Response> {
 
 // Helper functions
 function generateId(): string {
-  return Math.random().toString(36).substr(2, 9);
+  return `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
 function calculateHealthScore(reports: any[]): number {
@@ -1543,6 +1626,9 @@ function calculateHealthScore(reports: any[]): number {
         break;
       case 'mild':
         score -= 5;
+        break;
+      case 'critical':
+        score -= 30;
         break;
     }
     
@@ -1571,16 +1657,26 @@ function getHealthRecommendations(healthScore: number): string[] {
 
 async function simulateExternalAIDiagnosis(request: any): Promise<any> {
   // Simulate external AI diagnosis process
+  const { symptoms, severity } = request;
   const commonDiagnoses = [
     { condition: 'Common Cold', confidence: 0.85, severity: 'low' },
     { condition: 'Seasonal Allergies', confidence: 0.78, severity: 'low' },
     { condition: 'Mild Dehydration', confidence: 0.72, severity: 'low' },
     { condition: 'Stress-related Symptoms', confidence: 0.68, severity: 'low' },
     { condition: 'Flu-like Symptoms', confidence: 0.82, severity: 'moderate' },
-    { condition: 'Respiratory Infection', confidence: 0.75, severity: 'moderate' }
+    { condition: 'Respiratory Infection', confidence: 0.75, severity: 'moderate' },
+    { condition: 'Pneumonia', confidence: 0.90, severity: 'high' }
   ];
 
-  const randomDiagnosis = commonDiagnoses[Math.floor(Math.random() * commonDiagnoses.length)];
+  let randomDiagnosis = commonDiagnoses[Math.floor(Math.random() * commonDiagnoses.length)];
+
+  // Simple logic to make diagnosis somewhat relevant
+  if (symptoms.includes('Fever') && symptoms.includes('Cough')) {
+    randomDiagnosis = commonDiagnoses.find(d => d.condition === 'Flu-like Symptoms') || randomDiagnosis;
+  }
+  if (severity === 'high' || severity === 'critical') {
+    randomDiagnosis = commonDiagnoses.find(d => d.condition === 'Pneumonia') || randomDiagnosis;
+  }
   
   return {
     diagnosis: randomDiagnosis.condition,
@@ -1592,7 +1688,7 @@ async function simulateExternalAIDiagnosis(request: any): Promise<any> {
       'Consider over-the-counter medications if appropriate',
       'Contact healthcare provider if symptoms worsen'
     ],
-    followUpRequired: randomDiagnosis.severity === 'moderate',
+    followUpRequired: randomDiagnosis.severity === 'moderate' || randomDiagnosis.severity === 'high',
     externalAISystem: '+1 7703620543',
     timestamp: new Date().toISOString()
   };
@@ -2532,7 +2628,7 @@ async function handleRequestMentorshipAPI(request: Request): Promise<Response> {
 
 async function handleEmergencySupport(request: Request): Promise<Response> {
   try {
-    const { userId, location, symptoms, severity, description } = await request.json() as any;
+    const { userId, location, symptoms, severity } = await request.json() as any;
     
     const alert: EmergencyAlert = {
       id: generateId(),
@@ -2542,7 +2638,8 @@ async function handleEmergencySupport(request: Request): Promise<Response> {
       severity: severity as 'low' | 'medium' | 'high' | 'critical',
       status: 'active',
       responders: [],
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      phone_number: '+17703620543' // Example phone number
     };
 
     emergencyAlerts.set(alert.id, alert);
@@ -2554,7 +2651,7 @@ async function handleEmergencySupport(request: Request): Promise<Response> {
         id: generateId(),
         senderId: 'system',
         senderName: 'Emergency Alert',
-        message: `EMERGENCY: ${severity} case in ${location}. Symptoms: ${symptoms.join(', ')}. Description: ${description}`,
+        message: `EMERGENCY: ${severity} case in ${location}. Symptoms: ${symptoms.join(', ')}.`,
         messageType: 'emergency',
         timestamp: new Date().toISOString()
       };
