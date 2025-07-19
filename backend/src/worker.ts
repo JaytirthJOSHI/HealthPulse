@@ -248,7 +248,10 @@ initializeHealthChallenges();
 let waitingUsers = new Map<string, WaitingUser>();
 let activeConnections = new Map<string, ChatConnection>();
 let connectedWebSockets = new Map<string, WebSocket>();
-let userToSocketMap = new Map<string, string>(); // Map userId to socketId
+// Map user IDs to sets of socket IDs (supports multiple tabs per user)
+let userToSocketsMap = new Map<string, Set<string>>();
+// Map socket IDs back to user IDs for cleanup
+let socketToUserMap = new Map<string, string>();
 
 // CORS headers
 const corsHeaders = {
@@ -653,12 +656,17 @@ function handleWebSocketClose(websocket: WebSocket) {
       connectedWebSockets.delete(socketId);
       
       // Remove from user to socket mapping
-      for (const [userId, mappedSocketId] of userToSocketMap.entries()) {
-        if (mappedSocketId === socketId) {
-          userToSocketMap.delete(userId);
-          console.log(`Removed user ${userId} mapping for socket ${socketId}`);
-          break;
+      const userId = socketToUserMap.get(socketId);
+      if (userId) {
+        const userSockets = userToSocketsMap.get(userId);
+        if (userSockets) {
+          userSockets.delete(socketId);
+          if (userSockets.size === 0) {
+            userToSocketsMap.delete(userId);
+          }
         }
+        socketToUserMap.delete(socketId);
+        console.log(`Removed user ${userId} mapping for socket ${socketId}`);
       }
       
       // Remove from waiting users
@@ -703,8 +711,12 @@ function handleJoinGroup(websocket: WebSocket, data: any, socketId: string) {
     return;
   }
 
-  // Map userId to socketId for current session only
-  userToSocketMap.set(userId, socketId);
+  // Map userId to socketId for current session (supports multiple tabs)
+  if (!userToSocketsMap.has(userId)) {
+    userToSocketsMap.set(userId, new Set());
+  }
+  userToSocketsMap.get(userId)!.add(socketId);
+  socketToUserMap.set(socketId, userId);
   console.log(`Mapped user ${userId} to socket ${socketId}`);
 
   const isNewMember = !group.members.includes(userId);
@@ -728,23 +740,25 @@ function handleJoinGroup(websocket: WebSocket, data: any, socketId: string) {
     let broadcastCount = 0;
     group.members.forEach(memberId => {
       if (memberId !== userId) { // Don't send to the new member
-        const memberSocketId = userToSocketMap.get(memberId);
-        if (memberSocketId) {
-          const memberWebSocket = connectedWebSockets.get(memberSocketId);
-          if (memberWebSocket) {
-            try {
-              sendWebSocketMessage(memberWebSocket, {
-                type: 'new_group_member',
-                groupId,
-                userId,
-                userNickname,
-                message: `${userNickname} joined the group`
-              });
-              broadcastCount++;
-            } catch (error) {
-              console.error(`Error broadcasting member join to ${memberId}:`, error);
+        const memberSocketIds = userToSocketsMap.get(memberId);
+        if (memberSocketIds) {
+          memberSocketIds.forEach(memberSocketId => {
+            const memberWebSocket = connectedWebSockets.get(memberSocketId);
+            if (memberWebSocket) {
+              try {
+                sendWebSocketMessage(memberWebSocket, {
+                  type: 'new_group_member',
+                  groupId,
+                  userId,
+                  userNickname,
+                  message: `${userNickname} joined the group`
+                });
+                broadcastCount++;
+              } catch (error) {
+                console.error(`Error broadcasting member join to ${memberId}:`, error);
+              }
             }
-          }
+          });
         }
       }
     });
@@ -795,21 +809,23 @@ function handleSendGroupMessage(websocket: WebSocket, data: any, socketId: strin
   let broadcastCount = 0;
   group.members.forEach(memberId => {
     if (memberId !== userId) { // Don't send to sender again
-      const memberSocketId = userToSocketMap.get(memberId);
-      if (memberSocketId) {
-        const memberWebSocket = connectedWebSockets.get(memberSocketId);
-        if (memberWebSocket) {
-          try {
-            sendWebSocketMessage(memberWebSocket, {
-              type: 'new_group_message',
-              groupId,
-              message: groupMessage
-            });
-            broadcastCount++;
-          } catch (error) {
-            console.error(`Error broadcasting to member ${memberId}:`, error);
+      const memberSocketIds = userToSocketsMap.get(memberId);
+      if (memberSocketIds) {
+        memberSocketIds.forEach(memberSocketId => {
+          const memberWebSocket = connectedWebSockets.get(memberSocketId);
+          if (memberWebSocket) {
+            try {
+              sendWebSocketMessage(memberWebSocket, {
+                type: 'new_group_message',
+                groupId,
+                message: groupMessage
+              });
+              broadcastCount++;
+            } catch (error) {
+              console.error(`Error broadcasting to member ${memberId}:`, error);
+            }
           }
-        }
+        });
       }
     }
   });
