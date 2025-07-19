@@ -880,7 +880,12 @@ function handleSendGroupMessage(websocket: WebSocket, data: any, socketId: strin
   };
   group.messages.push(groupMessage);
 
-  console.log(`Message added to group ${group.name}, stored for ${group.members.length} members`);
+  // Keep only the last 50 messages to prevent memory overflow
+  if (group.messages.length > 50) {
+    group.messages = group.messages.slice(-50);
+  }
+
+  console.log(`Message added to group ${group.name}, stored for ${group.members.length} members (${group.messages.length} total messages)`);
 
   // Send confirmation to the sender
   sendWebSocketMessage(websocket, {
