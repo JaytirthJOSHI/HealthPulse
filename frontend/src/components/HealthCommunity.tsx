@@ -28,14 +28,28 @@ const HealthCommunity: React.FC<HealthCommunityProps> = ({ isVisible, onClose })
   const [loading, setLoading] = useState(true);
   const [selectedGroup, setSelectedGroup] = useState<any>(null);
   const [groupMessages, setGroupMessages] = useState<any[]>([]);
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const selectedGroupRef = useRef<any>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isComponentMountedRef = useRef(true);
 
   // Update the ref when selectedGroup changes
   useEffect(() => {
     selectedGroupRef.current = selectedGroup;
   }, [selectedGroup]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isComponentMountedRef.current = false;
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Fetch real data from backend
   useEffect(() => {
@@ -67,33 +81,71 @@ const HealthCommunity: React.FC<HealthCommunityProps> = ({ isVisible, onClose })
   // WebSocket connection management - keep connection open while modal is visible
   useEffect(() => {
     if (!isVisible) {
+      // Clean up when modal is closed
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      setConnectionStatus('disconnected');
+      setConnectionError(null);
       return;
     }
 
-    // Create WebSocket connection only once when modal opens
-    if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
+    const connectWebSocket = () => {
+      if (!isComponentMountedRef.current || !isVisible) return;
+
       try {
+        setConnectionStatus('connecting');
+        setConnectionError(null);
+        
+        // Close existing connection if any
+        if (wsRef.current) {
+          wsRef.current.close();
+        }
+
         wsRef.current = new WebSocket(WS_URL);
         
         wsRef.current.onopen = () => {
+          if (!isComponentMountedRef.current) return;
           console.log('WebSocket connected for HealthCommunity, state:', wsRef.current?.readyState);
+          setConnectionStatus('connected');
+          setConnectionError(null);
         };
         
         wsRef.current.onclose = (event) => {
+          if (!isComponentMountedRef.current) return;
           console.log('WebSocket disconnected:', event.code, event.reason);
+          
           // Clear the ref
           wsRef.current = null;
+          setConnectionStatus('disconnected');
+          
+          // Attempt to reconnect if the component is still mounted and modal is visible
+          if (isComponentMountedRef.current && isVisible && event.code !== 1000) {
+            setConnectionError('Connection lost, reconnecting...');
+            reconnectTimeoutRef.current = setTimeout(() => {
+              if (isComponentMountedRef.current && isVisible) {
+                console.log('Attempting to reconnect WebSocket...');
+                connectWebSocket();
+              }
+            }, 3000);
+          }
         };
         
-        wsRef.current.onerror = (e) => {
-          console.error('WebSocket error:', e);
+        wsRef.current.onerror = (error) => {
+          if (!isComponentMountedRef.current) return;
+          console.error('WebSocket error:', error);
+          setConnectionStatus('error');
+          setConnectionError('Connection error occurred');
         };
         
         wsRef.current.onmessage = (event) => {
+          if (!isComponentMountedRef.current) return;
+          
           try {
             const data = JSON.parse(event.data);
             console.log('WebSocket message received:', data);
@@ -128,17 +180,44 @@ const HealthCommunity: React.FC<HealthCommunityProps> = ({ isVisible, onClose })
               // Optionally show a notification when someone joins
               console.log(`${data.userNickname} joined the group`);
             }
+
+            if (data.type === 'error') {
+              console.error('Server error:', data.message);
+              setConnectionError(data.message || 'Server error occurred');
+            }
           } catch (err) {
             console.error('Error parsing WebSocket message:', err);
+            setConnectionError('Failed to process server message');
           }
         };
       } catch (error) {
         console.error('Failed to create WebSocket connection:', error);
+        setConnectionStatus('error');
+        setConnectionError('Failed to establish connection');
+        
+        // Retry after delay
+        if (isComponentMountedRef.current && isVisible) {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            if (isComponentMountedRef.current && isVisible) {
+              connectWebSocket();
+            }
+          }, 5000);
+        }
       }
+    };
+
+    // Only connect if modal is visible and no existing connection
+    if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
+      connectWebSocket();
     }
 
     return () => {
-      if (wsRef.current) {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.close();
         wsRef.current = null;
       }
@@ -342,6 +421,22 @@ const HealthCommunity: React.FC<HealthCommunityProps> = ({ isVisible, onClose })
                     <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{selectedGroup.name}</h3>
                       <p className="text-sm text-gray-600 dark:text-gray-400">{selectedGroup.description}</p>
+                      {/* Connection Status */}
+                      <div className="mt-2 flex items-center space-x-2">
+                        <div className={`w-2 h-2 rounded-full ${
+                          connectionStatus === 'connected' ? 'bg-green-500' : 
+                          connectionStatus === 'connecting' ? 'bg-yellow-500' : 
+                          connectionStatus === 'error' ? 'bg-red-500' : 'bg-gray-500'
+                        }`}></div>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {connectionStatus === 'connected' ? 'Connected' : 
+                           connectionStatus === 'connecting' ? 'Connecting...' : 
+                           connectionStatus === 'error' ? 'Connection Error' : 'Disconnected'}
+                        </span>
+                        {connectionError && (
+                          <span className="text-xs text-red-500">({connectionError})</span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white dark:bg-gray-900">
                       {groupMessages.map(message => (

@@ -100,48 +100,116 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
   const [userId, setUserId] = useState<string>('');
   const [userNickname, setUserNickname] = useState<string>('');
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [lastMessageCheck, setLastMessageCheck] = useState<string>('');
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isComponentMountedRef = useRef(true);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isComponentMountedRef.current = false;
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isVisible) return;
 
-    // Connect to WebSocket server
-    const ws = new WebSocket('wss://healthpulse-api.healthsathi.workers.dev/chat');
-    setWebsocket(ws);
+    const connectWebSocket = () => {
+      if (!isComponentMountedRef.current) return;
 
-    ws.onopen = () => {
-      console.log('WebSocket connected for collaborative features');
-      const newUserId = `user_${Math.random().toString(36).substr(2, 9)}`;
-      const newNickname = `HealthUser_${Math.random().toString(36).substr(2, 5)}`;
-      setUserId(newUserId);
-      setUserNickname(newNickname);
-    };
-
-    ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
-        handleWebSocketMessage(data);
+        setIsConnecting(true);
+        setConnectionError(null);
+        
+        // Close existing connection if any
+        if (websocket) {
+          websocket.close();
+        }
+
+        // Connect to WebSocket server
+        const ws = new WebSocket('wss://healthpulse-api.healthsathi.workers.dev/chat');
+        setWebsocket(ws);
+
+        ws.onopen = () => {
+          if (!isComponentMountedRef.current) return;
+          console.log('WebSocket connected for collaborative features');
+          setIsConnecting(false);
+          setConnectionError(null);
+          const newUserId = `user_${Math.random().toString(36).substr(2, 9)}`;
+          const newNickname = `HealthUser_${Math.random().toString(36).substr(2, 5)}`;
+          setUserId(newUserId);
+          setUserNickname(newNickname);
+        };
+
+        ws.onmessage = (event) => {
+          if (!isComponentMountedRef.current) return;
+          try {
+            const data = JSON.parse(event.data);
+            handleWebSocketMessage(data);
+          } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
+            setConnectionError('Failed to process server message');
+          }
+        };
+
+        ws.onerror = (error) => {
+          if (!isComponentMountedRef.current) return;
+          console.error('WebSocket error:', error);
+          setConnectionError('Connection error occurred');
+          setIsConnecting(false);
+        };
+
+        ws.onclose = (event) => {
+          if (!isComponentMountedRef.current) return;
+          console.log('WebSocket disconnected');
+          setIsConnecting(false);
+          
+          // Attempt to reconnect if not a normal closure and component is visible
+          if (event.code !== 1000 && isComponentMountedRef.current && isVisible) {
+            setConnectionError('Connection lost, reconnecting...');
+            reconnectTimeoutRef.current = setTimeout(() => {
+              if (isComponentMountedRef.current && isVisible) {
+                connectWebSocket();
+              }
+            }, 3000);
+          }
+        };
       } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
+        console.error('Failed to create WebSocket connection:', error);
+        setConnectionError('Failed to establish connection');
+        setIsConnecting(false);
+        
+        // Retry after delay
+        if (isComponentMountedRef.current && isVisible) {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            if (isComponentMountedRef.current && isVisible) {
+              connectWebSocket();
+            }
+          }, 5000);
+        }
       }
     };
 
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
-
-    ws.onclose = () => {
-      console.log('WebSocket disconnected');
-    };
+    connectWebSocket();
 
     // Load initial data
     loadHealthGroups();
     loadHealthChallenges();
 
     return () => {
-      ws.close();
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (websocket) {
+        websocket.close();
+      }
       if (pollingInterval) {
         clearInterval(pollingInterval);
       }
@@ -205,44 +273,50 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
   };
 
   const handleWebSocketMessage = (data: any) => {
-    switch (data.type) {
-      case 'group_joined':
-        setSelectedGroup(data.group);
-        setLastMessageCheck(new Date().toISOString());
-        break;
-      case 'group_message_sent':
-        // Immediate feedback - add the sent message to the UI
-        if (selectedGroup && data.groupId === selectedGroup.id && data.message) {
-          setSelectedGroup(prev => prev ? {
-            ...prev,
-            messages: [...prev.messages, data.message]
-          } : null);
-        }
-        break;
-      case 'new_group_message':
-        if (selectedGroup && data.groupId === selectedGroup.id) {
-          setSelectedGroup(prev => prev ? {
-            ...prev,
-            messages: [...prev.messages, data.message]
-          } : null);
-        }
-        break;
-      case 'challenge_joined':
-        setSelectedChallenge(data.challenge);
-        break;
-      case 'challenge_progress_updated':
-        setHealthChallenges(prev => prev.map(challenge => 
-          challenge.id === data.challengeId 
-            ? { ...challenge, progress: { ...challenge.progress, [data.userId]: data.progress } }
-            : challenge
-        ));
-        break;
-      case 'emergency_alert':
-        // Handle emergency alert
-        break;
-      case 'error':
-        console.error('WebSocket error:', data.message);
-        break;
+    try {
+      switch (data.type) {
+        case 'group_joined':
+          setSelectedGroup(data.group);
+          setLastMessageCheck(new Date().toISOString());
+          break;
+        case 'group_message_sent':
+          // Immediate feedback - add the sent message to the UI
+          if (selectedGroup && data.groupId === selectedGroup.id && data.message) {
+            setSelectedGroup(prev => prev ? {
+              ...prev,
+              messages: [...prev.messages, data.message]
+            } : null);
+          }
+          break;
+        case 'new_group_message':
+          if (selectedGroup && data.groupId === selectedGroup.id) {
+            setSelectedGroup(prev => prev ? {
+              ...prev,
+              messages: [...prev.messages, data.message]
+            } : null);
+          }
+          break;
+        case 'challenge_joined':
+          setSelectedChallenge(data.challenge);
+          break;
+        case 'challenge_progress_updated':
+          setHealthChallenges(prev => prev.map(challenge => 
+            challenge.id === data.challengeId 
+              ? { ...challenge, progress: { ...challenge.progress, [data.userId]: data.progress } }
+              : challenge
+          ));
+          break;
+        case 'emergency_alert':
+          // Handle emergency alert
+          break;
+        case 'error':
+          console.error('WebSocket server error:', data.message);
+          setConnectionError(data.message || 'Server error occurred');
+          break;
+      }
+    } catch (error) {
+      console.error('Error handling WebSocket message:', error);
+      setConnectionError('Failed to handle server message');
     }
   };
 

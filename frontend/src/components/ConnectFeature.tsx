@@ -26,94 +26,165 @@ const ConnectFeature: React.FC = () => {
   const [messageInput, setMessageInput] = useState('');
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
   const [userId, setUserId] = useState<string>('');
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isComponentMountedRef = useRef(true);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isComponentMountedRef.current = false;
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
-    // Connect to WebSocket server
-    const wsUrl = window.location.hostname === 'localhost' ? 'ws://localhost:8787' : 'wss://healthpulse-api.healthsathi.workers.dev/chat';
-    const ws = new WebSocket(wsUrl);
-    setWebsocket(ws);
+    const connectWebSocket = () => {
+      if (!isComponentMountedRef.current) return;
 
-    ws.onopen = () => {
-      console.log('WebSocket connected for ConnectFeature');
-      // Generate a unique user ID
-      const newUserId = `user_${Math.random().toString(36).substr(2, 9)}`;
-      setUserId(newUserId);
-    };
-
-    ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
-        console.log('WebSocket message received:', data.type);
+        setIsConnecting(true);
+        setConnectionError(null);
         
-        switch (data.type) {
-          case 'waiting_for_connection':
-            setConnectionState(prev => ({
-              ...prev,
-              isWaiting: true,
-              isConnected: false
-            }));
-            break;
-            
-          case 'connection_made':
-            setConnectionState(prev => ({
-              ...prev,
-              isConnected: true,
-              isWaiting: false,
-              connectionId: data.connectionId,
-              partnerId: data.partnerId
-            }));
-            break;
-            
-          case 'new_message':
-            setConnectionState(prev => ({
-              ...prev,
-              messages: [...prev.messages, data.message]
-            }));
-            break;
-            
-          case 'message_sent':
-            // Message was successfully sent to server - no need to add locally
-            // The server will broadcast it back as 'new_message'
-            break;
-            
-          case 'partner_disconnected':
-            setConnectionState(prev => ({
-              ...prev,
-              isConnected: false,
-              isWaiting: false,
-              connectionId: undefined,
-              partnerId: undefined
-            }));
-            break;
-            
-          case 'error':
-            console.error('WebSocket error:', data.message);
-            break;
+        // Close existing connection if any
+        if (websocket) {
+          websocket.close();
         }
+
+        const wsUrl = window.location.hostname === 'localhost' ? 'ws://localhost:8787' : 'wss://healthpulse-api.healthsathi.workers.dev/chat';
+        const ws = new WebSocket(wsUrl);
+        setWebsocket(ws);
+
+        ws.onopen = () => {
+          if (!isComponentMountedRef.current) return;
+          console.log('WebSocket connected for ConnectFeature');
+          setIsConnecting(false);
+          setConnectionError(null);
+          // Generate a unique user ID
+          const newUserId = `user_${Math.random().toString(36).substr(2, 9)}`;
+          setUserId(newUserId);
+        };
+
+        ws.onmessage = (event) => {
+          if (!isComponentMountedRef.current) return;
+          
+          try {
+            const data = JSON.parse(event.data);
+            console.log('WebSocket message received:', data.type);
+            
+            switch (data.type) {
+              case 'waiting_for_connection':
+                setConnectionState(prev => ({
+                  ...prev,
+                  isWaiting: true,
+                  isConnected: false
+                }));
+                break;
+                
+              case 'connection_made':
+                setConnectionState(prev => ({
+                  ...prev,
+                  isConnected: true,
+                  isWaiting: false,
+                  connectionId: data.connectionId,
+                  partnerId: data.partnerId
+                }));
+                break;
+                
+              case 'new_message':
+                setConnectionState(prev => ({
+                  ...prev,
+                  messages: [...prev.messages, data.message]
+                }));
+                break;
+                
+              case 'message_sent':
+                // Message was successfully sent to server - no need to add locally
+                // The server will broadcast it back as 'new_message'
+                break;
+                
+              case 'partner_disconnected':
+                setConnectionState(prev => ({
+                  ...prev,
+                  isConnected: false,
+                  isWaiting: false,
+                  connectionId: undefined,
+                  partnerId: undefined
+                }));
+                break;
+                
+              case 'error':
+                console.error('WebSocket server error:', data.message);
+                setConnectionError(data.message || 'Server error occurred');
+                break;
+            }
+          } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
+            setConnectionError('Failed to process server message');
+          }
+        };
+
+        ws.onerror = (error) => {
+          if (!isComponentMountedRef.current) return;
+          console.error('WebSocket error:', error);
+          setConnectionError('Connection error occurred');
+          setIsConnecting(false);
+        };
+
+        ws.onclose = (event) => {
+          if (!isComponentMountedRef.current) return;
+          console.log('WebSocket disconnected:', event.code, event.reason);
+          setIsConnecting(false);
+          setConnectionState(prev => ({
+            ...prev,
+            isConnected: false,
+            isWaiting: false,
+            connectionId: undefined,
+            partnerId: undefined
+          }));
+          
+          // Attempt to reconnect if not a normal closure
+          if (event.code !== 1000 && isComponentMountedRef.current) {
+            setConnectionError('Connection lost, reconnecting...');
+            reconnectTimeoutRef.current = setTimeout(() => {
+              if (isComponentMountedRef.current) {
+                console.log('Attempting to reconnect WebSocket...');
+                connectWebSocket();
+              }
+            }, 3000);
+          }
+        };
       } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
+        console.error('Failed to create WebSocket connection:', error);
+        setConnectionError('Failed to establish connection');
+        setIsConnecting(false);
+        
+        // Retry after delay
+        if (isComponentMountedRef.current) {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            if (isComponentMountedRef.current) {
+              connectWebSocket();
+            }
+          }, 5000);
+        }
       }
     };
 
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
-
-    ws.onclose = (event) => {
-      console.log('WebSocket disconnected:', event.code, event.reason);
-      setConnectionState(prev => ({
-        ...prev,
-        isConnected: false,
-        isWaiting: false,
-        connectionId: undefined,
-        partnerId: undefined
-      }));
-    };
+    connectWebSocket();
 
     return () => {
-      ws.close();
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (websocket) {
+        websocket.close();
+      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -209,6 +280,22 @@ const ConnectFeature: React.FC = () => {
                 Find someone to chat with about health experiences
               </p>
             </div>
+            {/* Connection Status */}
+            {(connectionError || isConnecting) && (
+              <div className="mb-3 p-2 rounded-md bg-gray-50 border-l-4 border-blue-500">
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${
+                    isConnecting ? 'bg-yellow-500' : 'bg-red-500'
+                  }`}></div>
+                  <span className="text-xs text-gray-600">
+                    {isConnecting ? 'Connecting...' : 'Connection Issue'}
+                  </span>
+                  {connectionError && (
+                    <span className="text-xs text-red-500">({connectionError})</span>
+                  )}
+                </div>
+              </div>
+            )}
             <button
               onClick={handleConnect}
               disabled={!websocket || websocket.readyState !== WebSocket.OPEN}
