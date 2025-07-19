@@ -897,12 +897,23 @@ function handleSendGroupMessage(websocket: WebSocket, data: any, socketId: strin
   
   // Broadcast message to all other group members who are currently connected
   let broadcastCount = 0;
+  console.log(`DEBUGGING: Starting broadcast for group ${group.name}`);
+  console.log(`DEBUGGING: Group has ${group.members.length} members:`, group.members);
+  console.log(`DEBUGGING: userToSocketsMap size: ${userToSocketsMap.size}`);
+  console.log(`DEBUGGING: connectedWebSockets size: ${connectedWebSockets.size}`);
+  console.log(`DEBUGGING: Current userToSocketsMap:`, Array.from(userToSocketsMap.entries()));
+  
   group.members.forEach(memberId => {
     if (memberId !== userId) { // Don't send to sender again
+      console.log(`DEBUGGING: Checking member ${memberId} for broadcast`);
       const memberSocketIds = userToSocketsMap.get(memberId);
+      console.log(`DEBUGGING: Member ${memberId} has socketIds:`, memberSocketIds ? Array.from(memberSocketIds) : 'NONE');
+      
       if (memberSocketIds) {
         memberSocketIds.forEach(memberSocketId => {
           const memberWebSocket = connectedWebSockets.get(memberSocketId);
+          console.log(`DEBUGGING: Socket ${memberSocketId} has WebSocket:`, !!memberWebSocket);
+          
           if (memberWebSocket) {
             try {
               sendWebSocketMessage(memberWebSocket, {
@@ -911,16 +922,23 @@ function handleSendGroupMessage(websocket: WebSocket, data: any, socketId: strin
                 message: groupMessage
               });
               broadcastCount++;
+              console.log(`DEBUGGING: Successfully broadcasted to socket ${memberSocketId}`);
             } catch (error) {
               console.error(`Error broadcasting to member ${memberId}:`, error);
             }
+          } else {
+            console.log(`DEBUGGING: No WebSocket found for socket ${memberSocketId}`);
           }
         });
+      } else {
+        console.log(`DEBUGGING: No socket mappings found for member ${memberId}`);
       }
+    } else {
+      console.log(`DEBUGGING: Skipping sender ${userId}`);
     }
   });
   
-  console.log(`Message confirmation sent to sender ${userNickname}, broadcasted to ${broadcastCount} other members`);
+  console.log(`DEBUGGING: Message confirmation sent to sender ${userNickname}, broadcasted to ${broadcastCount} other members`);
 }
 
 function handleJoinChallenge(websocket: WebSocket, data: any, socketId: string) {
