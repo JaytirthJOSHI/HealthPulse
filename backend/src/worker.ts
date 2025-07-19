@@ -707,7 +707,8 @@ function handleJoinGroup(websocket: WebSocket, data: any, socketId: string) {
   userToSocketMap.set(userId, socketId);
   console.log(`Mapped user ${userId} to socket ${socketId}`);
 
-  if (!group.members.includes(userId)) {
+  const isNewMember = !group.members.includes(userId);
+  if (isNewMember) {
     group.members.push(userId);
     console.log(`User ${userNickname} added to group ${group.name}`);
   }
@@ -722,9 +723,35 @@ function handleJoinGroup(websocket: WebSocket, data: any, socketId: string) {
     }
   });
 
-  // Note: Removed cross-context WebSocket access for other members
-  // Other users will see new members when they poll or reconnect
-  console.log(`User ${userNickname} successfully joined group ${group.name}`);
+  // Broadcast to existing members that a new user joined (only if it's actually a new member)
+  if (isNewMember) {
+    let broadcastCount = 0;
+    group.members.forEach(memberId => {
+      if (memberId !== userId) { // Don't send to the new member
+        const memberSocketId = userToSocketMap.get(memberId);
+        if (memberSocketId) {
+          const memberWebSocket = connectedWebSockets.get(memberSocketId);
+          if (memberWebSocket) {
+            try {
+              sendWebSocketMessage(memberWebSocket, {
+                type: 'new_group_member',
+                groupId,
+                userId,
+                userNickname,
+                message: `${userNickname} joined the group`
+              });
+              broadcastCount++;
+            } catch (error) {
+              console.error(`Error broadcasting member join to ${memberId}:`, error);
+            }
+          }
+        }
+      }
+    });
+    console.log(`User ${userNickname} successfully joined group ${group.name}, notified ${broadcastCount} existing members`);
+  } else {
+    console.log(`User ${userNickname} rejoined group ${group.name}`);
+  }
 }
 
 function handleSendGroupMessage(websocket: WebSocket, data: any, socketId: string) {
@@ -756,8 +783,7 @@ function handleSendGroupMessage(websocket: WebSocket, data: any, socketId: strin
 
   console.log(`Message added to group ${group.name}, stored for ${group.members.length} members`);
 
-  // Only send confirmation to the current sender
-  // Other users will see the message when they poll or reconnect
+  // Send confirmation to the sender
   sendWebSocketMessage(websocket, {
     type: 'group_message_sent',
     groupId,
@@ -765,7 +791,30 @@ function handleSendGroupMessage(websocket: WebSocket, data: any, socketId: strin
     message: groupMessage
   });
   
-  console.log(`Message confirmation sent to sender ${userNickname}`);
+  // Broadcast message to all other group members who are currently connected
+  let broadcastCount = 0;
+  group.members.forEach(memberId => {
+    if (memberId !== userId) { // Don't send to sender again
+      const memberSocketId = userToSocketMap.get(memberId);
+      if (memberSocketId) {
+        const memberWebSocket = connectedWebSockets.get(memberSocketId);
+        if (memberWebSocket) {
+          try {
+            sendWebSocketMessage(memberWebSocket, {
+              type: 'new_group_message',
+              groupId,
+              message: groupMessage
+            });
+            broadcastCount++;
+          } catch (error) {
+            console.error(`Error broadcasting to member ${memberId}:`, error);
+          }
+        }
+      }
+    }
+  });
+  
+  console.log(`Message confirmation sent to sender ${userNickname}, broadcasted to ${broadcastCount} other members`);
 }
 
 function handleJoinChallenge(websocket: WebSocket, data: any, socketId: string) {
