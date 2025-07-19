@@ -145,7 +145,32 @@ function initializeHealthGroups() {
       category: 'disease' as const,
       diseaseType: 'flu',
       members: [],
-      messages: [],
+      messages: [
+        {
+          id: 'demo-1',
+          senderId: 'system',
+          senderName: 'Dr. Sarah',
+          message: 'Welcome to the Flu Recovery Support group! Feel free to share your experiences and ask questions.',
+          messageType: 'text' as const,
+          timestamp: new Date(Date.now() - 3600000).toISOString() // 1 hour ago
+        },
+        {
+          id: 'demo-2',
+          senderId: 'user-demo-1',
+          senderName: 'Alex',
+          message: 'Thanks for creating this space. I\'m recovering from the flu and it\'s been helpful to have support.',
+          messageType: 'text' as const,
+          timestamp: new Date(Date.now() - 1800000).toISOString() // 30 minutes ago
+        },
+        {
+          id: 'demo-3',
+          senderId: 'user-demo-2',
+          senderName: 'Maria',
+          message: 'I found that staying hydrated and getting plenty of rest really helped me. Hope everyone feels better soon!',
+          messageType: 'text' as const,
+          timestamp: new Date(Date.now() - 900000).toISOString() // 15 minutes ago
+        }
+      ],
       createdAt: Date.now(),
       isActive: true
     },
@@ -156,7 +181,24 @@ function initializeHealthGroups() {
       category: 'disease' as const,
       diseaseType: 'covid',
       members: [],
-      messages: [],
+      messages: [
+        {
+          id: 'covid-demo-1',
+          senderId: 'nurse-jane',
+          senderName: 'Nurse Jane',
+          message: 'Remember to monitor your symptoms and stay in touch with your healthcare provider. We\'re here to support each other.',
+          messageType: 'text' as const,
+          timestamp: new Date(Date.now() - 7200000).toISOString() // 2 hours ago
+        },
+        {
+          id: 'covid-demo-2',
+          senderId: 'user-john',
+          senderName: 'John',
+          message: 'Day 5 of recovery - feeling much better today. Thanks everyone for the encouragement!',
+          messageType: 'text' as const,
+          timestamp: new Date(Date.now() - 3600000).toISOString() // 1 hour ago
+        }
+      ],
       createdAt: Date.now(),
       isActive: true
     },
@@ -166,7 +208,24 @@ function initializeHealthGroups() {
       description: 'Support for mental health and emotional well-being',
       category: 'wellness' as const,
       members: [],
-      messages: [],
+      messages: [
+        {
+          id: 'wellness-demo-1',
+          senderId: 'therapist-lisa',
+          senderName: 'Lisa (Therapist)',
+          message: 'Welcome to our safe space for mental wellness. Remember, taking care of your mental health is just as important as physical health.',
+          messageType: 'text' as const,
+          timestamp: new Date(Date.now() - 5400000).toISOString() // 1.5 hours ago
+        },
+        {
+          id: 'wellness-demo-2',
+          senderId: 'user-emma',
+          senderName: 'Emma',
+          message: 'I\'ve been practicing the breathing exercises we discussed. They really help with my anxiety. Thanks for the support!',
+          messageType: 'text' as const,
+          timestamp: new Date(Date.now() - 2700000).toISOString() // 45 minutes ago
+        }
+      ],
       createdAt: Date.now(),
       isActive: true
     },
@@ -176,7 +235,16 @@ function initializeHealthGroups() {
       description: 'Real-time emergency coordination and support',
       category: 'emergency' as const,
       members: [],
-      messages: [],
+      messages: [
+        {
+          id: 'emergency-demo-1',
+          senderId: 'paramedic-mike',
+          senderName: 'Mike (Paramedic)',
+          message: 'This channel is for emergency coordination. For immediate medical emergencies, always call 911 first, then share updates here.',
+          messageType: 'emergency' as const,
+          timestamp: new Date(Date.now() - 10800000).toISOString() // 3 hours ago
+        }
+      ],
       createdAt: Date.now(),
       isActive: true
     },
@@ -186,7 +254,24 @@ function initializeHealthGroups() {
       description: 'Share and discover preventive health measures',
       category: 'general' as const,
       members: [],
-      messages: [],
+      messages: [
+        {
+          id: 'prevention-demo-1',
+          senderId: 'dr-health',
+          senderName: 'Dr. Health',
+          message: 'Tip of the day: Regular hand washing for 20 seconds with soap can prevent many common illnesses. Stay healthy everyone!',
+          messageType: 'health_tip' as const,
+          timestamp: new Date(Date.now() - 1800000).toISOString() // 30 minutes ago
+        },
+        {
+          id: 'prevention-demo-2',
+          senderId: 'user-sarah',
+          senderName: 'Sarah',
+          message: 'I\'ve been drinking more water and eating more fruits since joining this group. Thanks for all the great tips!',
+          messageType: 'text' as const,
+          timestamp: new Date(Date.now() - 600000).toISOString() // 10 minutes ago
+        }
+      ],
       createdAt: Date.now(),
       isActive: true
     }
