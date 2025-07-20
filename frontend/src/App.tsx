@@ -10,6 +10,10 @@ import PhoneAI from './components/PhoneAI';
 import PredictiveAnalytics from './components/PredictiveAnalytics';
 import ConnectFeature from './components/ConnectFeature';
 import HealthCommunity from './components/HealthCommunity';
+import PrivateChatRoom from './components/PrivateChatRoom';
+import CollaborativeFeatures from './components/CollaborativeFeatures';
+import AccessibilityMenu from './components/AccessibilityMenu';
+import ErrorBoundary from './components/ErrorBoundary';
 import { RealTimeProvider } from './contexts/RealTimeContext';
 import { SupabaseProvider } from './contexts/SupabaseContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -22,6 +26,7 @@ const HelmetWrapper = Helmet as any;
 function App() {
   const [connectFeatureEnabled, setConnectFeatureEnabled] = useState(false);
   const [collaborativeFeaturesVisible, setCollaborativeFeaturesVisible] = useState(false);
+  const [privateChatRoomVisible, setPrivateChatRoomVisible] = useState(false);
 
   return (
     <ThemeProvider>
@@ -42,6 +47,7 @@ function App() {
               connectFeatureEnabled={connectFeatureEnabled}
               onToggleConnectFeature={setConnectFeatureEnabled}
               onOpenCollaborativeFeatures={() => setCollaborativeFeaturesVisible(true)}
+              onOpenPrivateChatRoom={() => setPrivateChatRoomVisible(true)}
             />
             <main id="main-content" className="container mx-auto px-4 py-6 flex-grow" aria-label="Main Content">
               <Routes>
@@ -58,66 +64,33 @@ function App() {
             <ConnectFeature />
             
             {/* Health Community */}
-            {isFeatureEnabled('COMMUNITY_ENABLED') && (
-              <HealthCommunity 
-                isVisible={collaborativeFeaturesVisible}
-                onClose={() => setCollaborativeFeaturesVisible(false)}
-              />
-            )}
-            
-            <footer className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 mt-auto">
-              <div className="container mx-auto px-4 py-8">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                  <div className="md:col-span-2">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                      <Heart className="w-5 h-5 text-red-500 mr-2" />
-                      HealthSathi's Pulse
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-300 mb-4">
-                      Real-time health monitoring platform by HealthSathi, helping communities track and respond to health trends.
-                    </p>
-                    <div className="flex space-x-4">
-                      <a href="https://github.com" className="text-gray-400 hover:text-gray-600 transition-colors">
-                        <Github className="w-5 h-5" />
-                      </a>
-                      <a href="mailto:info@healthsathi.org" className="text-gray-400 hover:text-gray-600 transition-colors">
-                        <Mail className="w-5 h-5" />
-                      </a>
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Quick Links</h4>
-                    <ul className="space-y-2">
-                                              <li><a href="/" className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Health Map</a></li>
-                        <li><a href="/report" className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Report Symptoms</a></li>
-                        <li><a href="/diseases" className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Disease Info</a></li>
-                        <li><a href="/phone-ai" className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">AI Diagnosis</a></li>
-                        <li><a href="/analytics" className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Analytics</a></li>
-                        <li><a href="/about" className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">About</a></li>
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                      <Shield className="w-4 h-4 mr-2" />
-                      Privacy & Security
-                    </h4>
-                    <ul className="space-y-2">
-                                              <li><a href="https://health-sathi.org/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Privacy Policy</a></li>
-                        <li><a href="https://health-sathi.org/terms-and-conditions" target="_blank" rel="noopener noreferrer" className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Terms of Service</a></li>
-                        <li><a href="/security" className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Security</a></li>
-                    </ul>
-                  </div>
-                </div>
-                <div className="border-t border-gray-200 dark:border-gray-800 mt-8 pt-8 text-center">
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">
-                    © {new Date().getFullYear()} HealthSathi's Pulse. Made with ❤️ for community health.
-                  </p>
-                </div>
-              </div>
-            </footer>
+            <HealthCommunity 
+              isVisible={collaborativeFeaturesVisible}
+              onClose={() => setCollaborativeFeaturesVisible(false)}
+            />
+
+            {/* Collaborative Features */}
+            <CollaborativeFeatures 
+              isVisible={collaborativeFeaturesVisible}
+              onClose={() => setCollaborativeFeaturesVisible(false)}
+            />
+
+            {/* Private Chat Room */}
+            <PrivateChatRoom 
+              isVisible={privateChatRoomVisible}
+              onClose={() => setPrivateChatRoomVisible(false)}
+            />
+
+            {/* Accessibility Menu */}
+            <AccessibilityMenu />
+
+            {/* Error Boundary */}
+            <ErrorBoundary>
+              <div></div>
+            </ErrorBoundary>
           </div>
-        </Router>
-      </RealTimeProvider>
+          </Router>
+          </RealTimeProvider>
         </SupabaseProvider>
       </ToastProvider>
     </ThemeProvider>

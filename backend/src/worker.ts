@@ -116,11 +116,35 @@ interface EmergencyAlert {
   phone_number: string;
 }
 
+// One-to-one chat room system
+interface PrivateChatRoom {
+  id: string;
+  inviteCode: string;
+  creatorId: string;
+  creatorName: string;
+  participantId?: string;
+  participantName?: string;
+  messages: PrivateMessage[];
+  createdAt: number;
+  isActive: boolean;
+  expiresAt: number; // 24 hours from creation
+}
+
+interface PrivateMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  message: string;
+  messageType: 'text' | 'image' | 'file';
+  timestamp: string;
+}
+
 // In-memory storage for collaborative features
 let healthGroups = new Map<string, HealthGroup>();
 let healthChallenges = new Map<string, HealthChallenge>();
 let healthMentors = new Map<string, HealthMentor>();
 let emergencyAlerts = new Map<string, EmergencyAlert>();
+let privateChatRooms = new Map<string, PrivateChatRoom>();
 let userProfiles = new Map<string, {
   id: string;
   nickname: string;
@@ -553,6 +577,23 @@ export default {
           return await handleGetEmergencyAlerts(request);
         }
 
+        // Private Chat Room endpoints
+        if (path === '/api/private-rooms' && request.method === 'POST') {
+          return await handleCreatePrivateRoomAPI(request);
+        }
+
+        if (path === '/api/private-rooms/join' && request.method === 'POST') {
+          return await handleJoinPrivateRoomAPI(request);
+        }
+
+        if (path === '/api/private-rooms' && request.method === 'GET') {
+          return await handleGetPrivateRooms(request);
+        }
+
+        if (path.startsWith('/api/private-rooms/') && path.endsWith('/messages') && request.method === 'GET') {
+          return await handleGetPrivateRoomMessages(request);
+        }
+
       // 404 for unknown routes
       return new Response(
         JSON.stringify({ error: 'Not found' }),
@@ -672,6 +713,19 @@ function handleWebSocketMessage(websocket: WebSocket, data: any, socketId: strin
         break;
       case 'emergency_alert':
         handleEmergencyAlert(websocket, data, socketId);
+        break;
+      // New one-to-one chat room handlers
+      case 'create_private_room':
+        handleCreatePrivateRoom(websocket, data, socketId);
+        break;
+      case 'join_private_room':
+        handleJoinPrivateRoom(websocket, data, socketId);
+        break;
+      case 'send_private_message':
+        handleSendPrivateMessage(websocket, data, socketId);
+        break;
+      case 'leave_private_room':
+        handleLeavePrivateRoom(websocket, data, socketId);
         break;
       default:
         console.log(`Unknown message type: ${data.type}`);
@@ -3011,6 +3065,501 @@ async function handlePollGroupUpdates(request: Request): Promise<Response> {
     );
   } catch (error) {
     console.error('Error in handlePollGroupUpdates:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+// Helper function to generate invite codes
+function generateInviteCode(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+// Helper function to create a private chat room
+function createPrivateChatRoom(creatorId: string, creatorName: string): PrivateChatRoom {
+  const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const inviteCode = generateInviteCode();
+  const now = Date.now();
+  const expiresAt = now + (24 * 60 * 60 * 1000); // 24 hours from now
+
+  const room: PrivateChatRoom = {
+    id: roomId,
+    inviteCode,
+    creatorId,
+    creatorName,
+    messages: [
+      {
+        id: 'welcome',
+        senderId: 'system',
+        senderName: 'System',
+        message: `Welcome to your private chat room! Share the invite code "${inviteCode}" with someone to start chatting.`,
+        messageType: 'text',
+        timestamp: new Date().toISOString()
+      }
+    ],
+    createdAt: now,
+    isActive: true,
+    expiresAt
+  };
+
+  privateChatRooms.set(roomId, room);
+  console.log(`Created private chat room ${roomId} with invite code ${inviteCode}`);
+  return room;
+}
+
+// Helper function to find room by invite code
+function findRoomByInviteCode(inviteCode: string): PrivateChatRoom | null {
+  for (const room of privateChatRooms.values()) {
+    if (room.inviteCode === inviteCode && room.isActive && Date.now() < room.expiresAt) {
+      return room;
+    }
+  }
+  return null;
+}
+
+// Helper function to clean up expired rooms
+function cleanupExpiredRooms() {
+  const now = Date.now();
+  for (const [roomId, room] of privateChatRooms.entries()) {
+    if (now > room.expiresAt) {
+      privateChatRooms.delete(roomId);
+      console.log(`Cleaned up expired room ${roomId}`);
+    }
+  }
+}
+
+// One-to-one chat room WebSocket handlers
+function handleCreatePrivateRoom(websocket: WebSocket, data: any, socketId: string) {
+  const { userId, userNickname } = data;
+  console.log(`User ${socketId} (${userNickname}) creating private chat room`);
+  
+  // Clean up expired rooms first
+  cleanupExpiredRooms();
+  
+  // Create new private chat room
+  const room = createPrivateChatRoom(userId, userNickname);
+  
+  // Send room info to creator
+  sendWebSocketMessage(websocket, {
+    type: 'private_room_created',
+    roomId: room.id,
+    inviteCode: room.inviteCode,
+    room: room
+  });
+  
+  console.log(`Private room ${room.id} created with invite code ${room.inviteCode}`);
+}
+
+function handleJoinPrivateRoom(websocket: WebSocket, data: any, socketId: string) {
+  const { inviteCode, userId, userNickname } = data;
+  console.log(`User ${socketId} (${userNickname}) joining private room with code ${inviteCode}`);
+  
+  // Clean up expired rooms first
+  cleanupExpiredRooms();
+  
+  // Find room by invite code
+  const room = findRoomByInviteCode(inviteCode);
+  
+  if (!room) {
+    sendWebSocketMessage(websocket, {
+      type: 'error',
+      message: 'Invalid or expired invite code'
+    });
+    return;
+  }
+  
+  // Check if room is full (max 2 participants)
+  if (room.participantId && room.participantId !== userId) {
+    sendWebSocketMessage(websocket, {
+      type: 'error',
+      message: 'This chat room is already full'
+    });
+    return;
+  }
+  
+  // Check if user is already in the room
+  if (room.creatorId === userId || room.participantId === userId) {
+    sendWebSocketMessage(websocket, {
+      type: 'error',
+      message: 'You are already in this chat room'
+    });
+    return;
+  }
+  
+  // Join the room
+  room.participantId = userId;
+  room.participantName = userNickname;
+  
+  // Add welcome message
+  room.messages.push({
+    id: `join_${Date.now()}`,
+    senderId: 'system',
+    senderName: 'System',
+    message: `${userNickname} joined the chat`,
+    messageType: 'text',
+    timestamp: new Date().toISOString()
+  });
+  
+  // Send room info to joiner
+  sendWebSocketMessage(websocket, {
+    type: 'private_room_joined',
+    roomId: room.id,
+    room: room
+  });
+  
+  // Notify creator that someone joined
+  const creatorSocket = connectedWebSockets.get(room.creatorId);
+  if (creatorSocket) {
+    sendWebSocketMessage(creatorSocket, {
+      type: 'private_room_participant_joined',
+      roomId: room.id,
+      participantId: userId,
+      participantName: userNickname,
+      room: room
+    });
+  }
+  
+  console.log(`User ${userNickname} joined private room ${room.id}`);
+}
+
+function handleSendPrivateMessage(websocket: WebSocket, data: any, socketId: string) {
+  const { roomId, userId, userNickname, message, messageType = 'text' } = data;
+  console.log(`User ${socketId} (${userNickname}) sending message to private room ${roomId}: ${message}`);
+  
+  const room = privateChatRooms.get(roomId);
+  
+  if (!room) {
+    sendWebSocketMessage(websocket, { type: 'error', message: 'Chat room not found' });
+    return;
+  }
+  
+  // Check if user is in the room
+  if (room.creatorId !== userId && room.participantId !== userId) {
+    sendWebSocketMessage(websocket, { type: 'error', message: 'You are not in this chat room' });
+    return;
+  }
+  
+  // Create the message
+  const privateMessage: PrivateMessage = {
+    id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    senderId: userId,
+    senderName: userNickname,
+    message,
+    messageType,
+    timestamp: new Date().toISOString()
+  };
+  
+  // Add message to room
+  room.messages.push(privateMessage);
+  
+  // Send confirmation to sender
+  sendWebSocketMessage(websocket, {
+    type: 'private_message_sent',
+    roomId,
+    messageId: privateMessage.id,
+    message: privateMessage
+  });
+  
+  // Broadcast to other participant
+  const otherUserId = room.creatorId === userId ? room.participantId : room.creatorId;
+  if (otherUserId) {
+    const otherSocket = connectedWebSockets.get(otherUserId);
+    if (otherSocket) {
+      sendWebSocketMessage(otherSocket, {
+        type: 'new_private_message',
+        roomId,
+        message: privateMessage
+      });
+    }
+  }
+  
+  console.log(`Private message sent in room ${roomId} by ${userNickname}`);
+}
+
+function handleLeavePrivateRoom(websocket: WebSocket, data: any, socketId: string) {
+  const { roomId, userId } = data;
+  console.log(`User ${socketId} leaving private room ${roomId}`);
+  
+  const room = privateChatRooms.get(roomId);
+  
+  if (!room) {
+    sendWebSocketMessage(websocket, { type: 'error', message: 'Chat room not found' });
+    return;
+  }
+  
+  // Check if user is in the room
+  if (room.creatorId !== userId && room.participantId !== userId) {
+    sendWebSocketMessage(websocket, { type: 'error', message: 'You are not in this chat room' });
+    return;
+  }
+  
+  // Add leave message
+  room.messages.push({
+    id: `leave_${Date.now()}`,
+    senderId: 'system',
+    senderName: 'System',
+    message: `${room.creatorId === userId ? room.creatorName : room.participantName} left the chat`,
+    messageType: 'text',
+    timestamp: new Date().toISOString()
+  });
+  
+  // Notify other participant
+  const otherUserId = room.creatorId === userId ? room.participantId : room.creatorId;
+  if (otherUserId) {
+    const otherSocket = connectedWebSockets.get(otherUserId);
+    if (otherSocket) {
+      sendWebSocketMessage(otherSocket, {
+        type: 'private_room_participant_left',
+        roomId,
+        participantId: userId,
+        room: room
+      });
+    }
+  }
+  
+  // Remove user from room
+  if (room.creatorId === userId) {
+    room.creatorId = room.participantId || '';
+    room.creatorName = room.participantName || '';
+    room.participantId = undefined;
+    room.participantName = undefined;
+  } else {
+    room.participantId = undefined;
+    room.participantName = undefined;
+  }
+  
+  // If room is empty, mark as inactive
+  if (!room.creatorId && !room.participantId) {
+    room.isActive = false;
+  }
+  
+  sendWebSocketMessage(websocket, {
+    type: 'private_room_left',
+    roomId
+  });
+  
+  console.log(`User ${userId} left private room ${roomId}`);
+}
+
+// Private Chat Room endpoints
+async function handleCreatePrivateRoomAPI(request: Request): Promise<Response> {
+  try {
+    const { userId, userNickname } = await request.json() as any;
+    
+    // Clean up expired rooms first
+    cleanupExpiredRooms();
+    
+    // Create new private chat room
+    const room = createPrivateChatRoom(userId, userNickname);
+    
+    return new Response(
+      JSON.stringify({
+        success: true,
+        roomId: room.id,
+        inviteCode: room.inviteCode
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleCreatePrivateRoomAPI:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleJoinPrivateRoomAPI(request: Request): Promise<Response> {
+  try {
+    const { inviteCode, userId, userNickname } = await request.json() as any;
+    
+    // Clean up expired rooms first
+    cleanupExpiredRooms();
+    
+    // Find room by invite code
+    const room = findRoomByInviteCode(inviteCode);
+    
+    if (!room) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired invite code' }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          },
+        }
+      );
+    }
+    
+    // Check if room is full (max 2 participants)
+    if (room.participantId && room.participantId !== userId) {
+      return new Response(
+        JSON.stringify({ error: 'This chat room is already full' }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          },
+        }
+      );
+    }
+    
+    // Check if user is already in the room
+    if (room.creatorId === userId || room.participantId === userId) {
+      return new Response(
+        JSON.stringify({ error: 'You are already in this chat room' }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          },
+        }
+      );
+    }
+    
+    // Join the room
+    room.participantId = userId;
+    room.participantName = userNickname;
+    
+    // Add welcome message
+    room.messages.push({
+      id: `join_${Date.now()}`,
+      senderId: 'system',
+      senderName: 'System',
+      message: `${userNickname} joined the chat`,
+      messageType: 'text',
+      timestamp: new Date().toISOString()
+    });
+    
+    // Note: Real-time notifications will be handled via WebSocket when users connect
+    
+    return new Response(
+      JSON.stringify({
+        success: true,
+        roomId: room.id,
+        inviteCode: room.inviteCode
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleJoinPrivateRoomAPI:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleGetPrivateRooms(request: Request): Promise<Response> {
+  try {
+    const rooms = Array.from(privateChatRooms.values()).filter(room => room.isActive);
+    
+    return new Response(
+      JSON.stringify({
+        success: true,
+        rooms: rooms
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleGetPrivateRooms:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleGetPrivateRoomMessages(request: Request): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split('/');
+    const roomId = pathParts[pathParts.length - 2]; // Get roomId from /api/private-rooms/{roomId}/messages
+    
+    const room = privateChatRooms.get(roomId);
+    if (!room) {
+      return new Response(
+        JSON.stringify({ error: 'Room not found' }),
+        {
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          },
+        }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        roomId: room.id,
+        messages: room.messages,
+        totalMembers: room.creatorId ? 2 : 1,
+        lastUpdated: new Date().toISOString()
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleGetPrivateRoomMessages:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
       {
