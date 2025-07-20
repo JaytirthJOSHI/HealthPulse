@@ -59,7 +59,6 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
   const [healthGroups, setHealthGroups] = useState<HealthGroup[]>([]);
   const [healthChallenges, setHealthChallenges] = useState<HealthChallenge[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<HealthGroup | null>(null);
-  const [selectedChallenge, setSelectedChallenge] = useState<HealthChallenge | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
   const [userId, setUserId] = useState<string>('');
@@ -93,7 +92,7 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
           }
           break;
         case 'challenge_joined':
-          setSelectedChallenge(data.challenge);
+          // setSelectedChallenge(data.challenge); // Removed as per edit hint
           break;
         case 'challenge_progress_updated':
           setHealthChallenges(prev => prev.map(challenge => 
@@ -232,33 +231,23 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
     }
   }, [selectedGroup]);
 
+  const sendEmergencyAlert = (symptoms: string[], severity: 'low' | 'medium' | 'high' | 'critical', description: string) => {
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send(JSON.stringify({
+        type: 'emergency_alert',
+        userId,
+        location: 'Your Location',
+        symptoms,
+        severity,
+        description
+      }));
+    }
+  };
+
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [selectedGroup?.messages, selectedChallenge]);
-
-  const loadHealthGroups = async () => {
-    try {
-      const response = await fetch('https://healthpulse-api.healthsathi.workers.dev/api/collaborative/groups');
-      const data = await response.json();
-      if (data.success) {
-        setHealthGroups(data.groups);
-      }
-    } catch (error) {
-      console.error('Error loading health groups:', error);
-    }
-  };
-
-  const loadHealthChallenges = async () => {
-    try {
-      const response = await fetch('https://healthpulse-api.healthsathi.workers.dev/api/collaborative/challenges');
-      const data = await response.json();
-      if (data.success) {
-        setHealthChallenges(data.challenges);
-      }
-    } catch (error) {
-      console.error('Error loading health challenges:', error);
-    }
-  };
+  }, [selectedGroup?.messages]);
 
   const pollGroupMessages = async (groupId: string) => {
     try {
@@ -296,19 +285,6 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
         challengeId,
         userId,
         userNickname
-      }));
-    }
-  };
-
-  const sendEmergencyAlert = (symptoms: string[], severity: 'low' | 'medium' | 'high' | 'critical', description: string) => {
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send(JSON.stringify({
-        type: 'emergency_alert',
-        userId,
-        location: 'Your Location',
-        symptoms,
-        severity,
-        description
       }));
     }
   };
