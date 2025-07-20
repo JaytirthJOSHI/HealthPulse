@@ -152,6 +152,28 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
   const sendMessage = async () => {
     if (!messageInput.trim() || !currentRoom) return;
 
+    const messageText = messageInput.trim();
+    const tempMessageId = `temp_${Date.now()}`;
+    
+    // Optimistically add message to UI immediately
+    const optimisticMessage: PrivateMessage = {
+      id: tempMessageId,
+      senderId: userId,
+      senderName: userNickname,
+      message: messageText,
+      messageType: 'text',
+      timestamp: new Date().toISOString()
+    };
+
+    // Add optimistic message to UI
+    setCurrentRoom(prev => prev ? {
+      ...prev,
+      messages: [...prev.messages, optimisticMessage]
+    } : null);
+    
+    // Clear input immediately for better UX
+    setMessageInput('');
+
     try {
       const response = await fetch(`https://healthpulse-api.healthsathi.workers.dev/api/private-rooms/${currentRoom.id}/messages`, {
         method: 'POST',
@@ -161,7 +183,7 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
         body: JSON.stringify({
           userId,
           userNickname,
-          message: messageInput.trim(),
+          message: messageText,
           messageType: 'text'
         })
       });
@@ -169,14 +191,28 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
       const data = await response.json();
       
       if (data.success) {
-        setMessageInput('');
-        // Message will be picked up by polling
+        // Message was sent successfully, the polling will pick up the real message
+        // and replace our optimistic message
       } else {
+        // Remove optimistic message if send failed
+        setCurrentRoom(prev => prev ? {
+          ...prev,
+          messages: prev.messages.filter(msg => msg.id !== tempMessageId)
+        } : null);
         setConnectionError('Failed to send message');
+        // Restore the message to input
+        setMessageInput(messageText);
       }
     } catch (error) {
       console.error('Error sending message:', error);
+      // Remove optimistic message if send failed
+      setCurrentRoom(prev => prev ? {
+        ...prev,
+        messages: prev.messages.filter(msg => msg.id !== tempMessageId)
+      } : null);
       setConnectionError('Failed to send message');
+      // Restore the message to input
+      setMessageInput(messageText);
     }
   };
 
@@ -195,9 +231,10 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
         const data = await response.json();
         
         if (data.success && currentRoom) {
+          // Only update the messages array, preserve all other room data
           setCurrentRoom(prev => prev ? {
             ...prev,
-            messages: data.messages
+            messages: data.messages || []
           } : null);
         }
       } catch (error) {

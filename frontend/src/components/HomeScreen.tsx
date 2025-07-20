@@ -10,7 +10,7 @@ export default function HomeScreen() {
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
           Health Outbreak Map
         </h2>
-        <div className="h-96 rounded-lg overflow-hidden">
+        <div className="h-96 rounded-lg overflow-hidden relative">
           <HealthMap />
         </div>
       </section>
