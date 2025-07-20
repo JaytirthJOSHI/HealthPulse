@@ -527,13 +527,13 @@ async function handleSendPrivateMessageAPI(request: Request): Promise<Response> 
 // Health monitoring API handlers
 async function handleGetReportsAPI(): Promise<Response> {
   try {
-    // Mock data for reports
+    // Comprehensive example data for reports
     const reports = [
       {
         id: 1,
         user_id: 'user_123',
-        symptoms: ['fever', 'cough', 'fatigue'],
-        illness_type: 'Upper respiratory infection',
+        symptoms: ['fever', 'cough', 'fatigue', 'body aches'],
+        illness_type: 'COVID-19',
         severity: 'moderate',
         latitude: 40.7128,
         longitude: -74.0060,
@@ -544,9 +544,9 @@ async function handleGetReportsAPI(): Promise<Response> {
       {
         id: 2,
         user_id: 'user_456',
-        symptoms: ['headache', 'nausea'],
+        symptoms: ['headache', 'nausea', 'sensitivity to light'],
         illness_type: 'Migraine',
-        severity: 'mild',
+        severity: 'severe',
         latitude: 51.5074,
         longitude: -0.1278,
         country: 'United Kingdom',
@@ -556,7 +556,7 @@ async function handleGetReportsAPI(): Promise<Response> {
       {
         id: 3,
         user_id: 'user_789',
-        symptoms: ['sore throat', 'fever'],
+        symptoms: ['sore throat', 'fever', 'difficulty swallowing'],
         illness_type: 'Strep throat',
         severity: 'moderate',
         latitude: 48.8566,
@@ -564,6 +564,150 @@ async function handleGetReportsAPI(): Promise<Response> {
         country: 'France',
         city: 'Paris',
         created_at: '2025-07-07T08:45:00.000Z'
+      },
+      {
+        id: 4,
+        user_id: 'user_101',
+        symptoms: ['nausea', 'vomiting', 'diarrhea', 'abdominal pain'],
+        illness_type: 'Gastroenteritis',
+        severity: 'moderate',
+        latitude: 52.5200,
+        longitude: 13.4050,
+        country: 'Germany',
+        city: 'Berlin',
+        created_at: '2025-07-07T07:30:00.000Z'
+      },
+      {
+        id: 5,
+        user_id: 'user_202',
+        symptoms: ['runny nose', 'sneezing', 'itchy eyes', 'congestion'],
+        illness_type: 'Seasonal allergies',
+        severity: 'mild',
+        latitude: 43.6532,
+        longitude: -79.3832,
+        country: 'Canada',
+        city: 'Toronto',
+        created_at: '2025-07-07T06:45:00.000Z'
+      },
+      {
+        id: 6,
+        user_id: 'user_303',
+        symptoms: ['fever', 'cough', 'shortness of breath', 'chest pain'],
+        illness_type: 'Pneumonia',
+        severity: 'severe',
+        latitude: -33.8688,
+        longitude: 151.2093,
+        country: 'Australia',
+        city: 'Sydney',
+        created_at: '2025-07-07T05:20:00.000Z'
+      },
+      {
+        id: 7,
+        user_id: 'user_404',
+        symptoms: ['fever', 'headache', 'muscle pain', 'fatigue'],
+        illness_type: 'Influenza',
+        severity: 'moderate',
+        latitude: 19.0760,
+        longitude: 72.8777,
+        country: 'India',
+        city: 'Mumbai',
+        created_at: '2025-07-07T04:10:00.000Z'
+      },
+      {
+        id: 8,
+        user_id: 'user_505',
+        symptoms: ['sore throat', 'hoarse voice', 'dry cough'],
+        illness_type: 'Laryngitis',
+        severity: 'mild',
+        latitude: -23.5505,
+        longitude: -46.6333,
+        country: 'Brazil',
+        city: 'São Paulo',
+        created_at: '2025-07-07T03:25:00.000Z'
+      },
+      {
+        id: 9,
+        user_id: 'user_606',
+        symptoms: ['fever', 'rash', 'joint pain'],
+        illness_type: 'Dengue fever',
+        severity: 'moderate',
+        latitude: 35.6762,
+        longitude: 139.6503,
+        country: 'Japan',
+        city: 'Tokyo',
+        created_at: '2025-07-07T02:40:00.000Z'
+      },
+      {
+        id: 10,
+        user_id: 'user_707',
+        symptoms: ['cough', 'wheezing', 'chest tightness'],
+        illness_type: 'Asthma',
+        severity: 'moderate',
+        latitude: 37.5665,
+        longitude: 126.9780,
+        country: 'South Korea',
+        city: 'Seoul',
+        created_at: '2025-07-07T01:55:00.000Z'
+      },
+      {
+        id: 11,
+        user_id: 'user_808',
+        symptoms: ['fever', 'sore throat', 'swollen lymph nodes'],
+        illness_type: 'Mononucleosis',
+        severity: 'moderate',
+        latitude: 55.7558,
+        longitude: 37.6176,
+        country: 'Russia',
+        city: 'Moscow',
+        created_at: '2025-07-06T23:30:00.000Z'
+      },
+      {
+        id: 12,
+        user_id: 'user_909',
+        symptoms: ['abdominal pain', 'nausea', 'loss of appetite'],
+        illness_type: 'Appendicitis',
+        severity: 'severe',
+        latitude: 39.9042,
+        longitude: 116.4074,
+        country: 'China',
+        city: 'Beijing',
+        created_at: '2025-07-06T22:15:00.000Z'
+      },
+      {
+        id: 13,
+        user_id: 'user_1010',
+        symptoms: ['fever', 'chills', 'sweating'],
+        illness_type: 'Malaria',
+        severity: 'severe',
+        latitude: 6.5244,
+        longitude: 3.3792,
+        country: 'Nigeria',
+        city: 'Lagos',
+        created_at: '2025-07-06T21:00:00.000Z'
+      },
+      {
+        id: 14,
+        user_id: 'user_1111',
+        symptoms: ['headache', 'dizziness', 'nausea'],
+        illness_type: 'Vertigo',
+        severity: 'mild',
+        latitude: 25.2048,
+        longitude: 55.2708,
+        country: 'United Arab Emirates',
+        city: 'Dubai',
+        created_at: '2025-07-06T20:30:00.000Z'
+      },
+      {
+        id: 15,
+        user_id: 'user_1212',
+        symptoms: ['fever', 'cough', 'fatigue', 'loss of taste'],
+        illness_type: 'COVID-19',
+        severity: 'mild',
+        latitude: 28.6139,
+        longitude: 77.2090,
+        country: 'India',
+        city: 'New Delhi',
+        created_at: '2025-07-06T19:45:00.000Z'
       }
     ];
 
@@ -595,17 +739,56 @@ async function handleGetReportsAPI(): Promise<Response> {
 async function handleGetHealthAggregatesAPI(): Promise<Response> {
   try {
     const aggregates = [
-      { metric: 'total_reports', value: 1250 },
-      { metric: 'total_users', value: 890 },
-      { metric: 'reports_in_last_24h', value: 45 },
-      { metric: 'active_countries', value: 23 },
-      { metric: 'most_reported_illness', value: 'Upper respiratory infection' },
+      { metric: 'total_reports', value: 2847 },
+      { metric: 'total_users', value: 1893 },
+      { metric: 'reports_in_last_24h', value: 156 },
+      { metric: 'active_countries', value: 47 },
+      { metric: 'most_reported_illness', value: 'COVID-19' },
       { metric: 'top_illnesses', value: [
-        { type: 'Upper respiratory infection', count: 156 },
-        { type: 'Migraine', count: 89 },
-        { type: 'Strep throat', count: 67 },
-        { type: 'Gastroenteritis', count: 45 },
-        { type: 'Seasonal allergies', count: 34 }
+        { type: 'COVID-19', count: 423 },
+        { type: 'Influenza', count: 298 },
+        { type: 'Upper respiratory infection', count: 267 },
+        { type: 'Migraine', count: 189 },
+        { type: 'Gastroenteritis', count: 156 },
+        { type: 'Seasonal allergies', count: 134 },
+        { type: 'Strep throat', count: 98 },
+        { type: 'Pneumonia', count: 67 },
+        { type: 'Asthma', count: 45 },
+        { type: 'Dengue fever', count: 34 }
+      ]},
+      { metric: 'severity_distribution', value: [
+        { severity: 'mild', count: 1247 },
+        { severity: 'moderate', count: 1134 },
+        { severity: 'severe', count: 466 }
+      ]},
+      { metric: 'geographic_spread', value: [
+        { country: 'United States', count: 456 },
+        { country: 'India', count: 389 },
+        { country: 'United Kingdom', count: 234 },
+        { country: 'Germany', count: 198 },
+        { country: 'France', count: 167 },
+        { country: 'Canada', count: 145 },
+        { country: 'Australia', count: 123 },
+        { country: 'Brazil', count: 98 },
+        { country: 'Japan', count: 87 },
+        { country: 'South Korea', count: 76 }
+      ]},
+      { metric: 'symptom_frequency', value: [
+        { symptom: 'fever', count: 892 },
+        { symptom: 'cough', count: 756 },
+        { symptom: 'fatigue', count: 634 },
+        { symptom: 'headache', count: 567 },
+        { symptom: 'sore throat', count: 445 },
+        { symptom: 'nausea', count: 334 },
+        { symptom: 'body aches', count: 298 },
+        { symptom: 'runny nose', count: 267 },
+        { symptom: 'shortness of breath', count: 189 },
+        { symptom: 'diarrhea', count: 156 }
+      ]},
+      { metric: 'trends', value: [
+        { period: 'last_7_days', change: '+12.5%' },
+        { period: 'last_30_days', change: '+8.3%' },
+        { period: 'last_90_days', change: '+5.7%' }
       ]}
     ];
 
@@ -637,12 +820,43 @@ async function handleGetHealthAggregatesAPI(): Promise<Response> {
 async function handleGetWHODataAPI(): Promise<Response> {
   try {
     const whoData = [
+      // Measles cases by country
       { Id: 1, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'IND', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '12500' },
       { Id: 2, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'USA', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '1200' },
       { Id: 3, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'CHN', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '8900' },
       { Id: 4, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'NGA', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '15600' },
       { Id: 5, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'PAK', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '9800' },
-      { Id: 6, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'IDN', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '6700' }
+      { Id: 6, IndicatorCode: 'MDG_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'IDN', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '6700' },
+      
+      // COVID-19 cases
+      { Id: 7, IndicatorCode: 'COVID_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'USA', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '4500000' },
+      { Id: 8, IndicatorCode: 'COVID_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'IND', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '3800000' },
+      { Id: 9, IndicatorCode: 'COVID_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'BRA', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '2100000' },
+      { Id: 10, IndicatorCode: 'COVID_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'GBR', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '1800000' },
+      
+      // Influenza cases
+      { Id: 11, IndicatorCode: 'FLU_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'USA', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '890000' },
+      { Id: 12, IndicatorCode: 'FLU_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'CHN', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '670000' },
+      { Id: 13, IndicatorCode: 'FLU_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'DEU', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '450000' },
+      { Id: 14, IndicatorCode: 'FLU_0000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'FRA', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '380000' },
+      
+      // Dengue fever cases
+      { Id: 15, IndicatorCode: 'DENGUE_000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'BRA', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '890000' },
+      { Id: 16, IndicatorCode: 'DENGUE_000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'IND', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '670000' },
+      { Id: 17, IndicatorCode: 'DENGUE_000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'IDN', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '450000' },
+      { Id: 18, IndicatorCode: 'DENGUE_000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'THA', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '380000' },
+      
+      // Malaria cases
+      { Id: 19, IndicatorCode: 'MALARIA_00000001', SpatialDimType: 'COUNTRY', SpatialDim: 'NGA', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '6700000' },
+      { Id: 20, IndicatorCode: 'MALARIA_00000001', SpatialDimType: 'COUNTRY', SpatialDim: 'COD', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '4500000' },
+      { Id: 21, IndicatorCode: 'MALARIA_00000001', SpatialDimType: 'COUNTRY', SpatialDim: 'TZA', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '3800000' },
+      { Id: 22, IndicatorCode: 'MALARIA_00000001', SpatialDimType: 'COUNTRY', SpatialDim: 'MOZ', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '2900000' },
+      
+      // Tuberculosis cases
+      { Id: 23, IndicatorCode: 'TB_000000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'IND', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '2100000' },
+      { Id: 24, IndicatorCode: 'TB_000000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'CHN', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '890000' },
+      { Id: 25, IndicatorCode: 'TB_000000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'IDN', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '670000' },
+      { Id: 26, IndicatorCode: 'TB_000000000001', SpatialDimType: 'COUNTRY', SpatialDim: 'PHL', TimeDimType: 'YEAR', TimeDim: 2023, Dim1Type: 'SEX', Dim1: 'BTSX', Value: '450000' }
     ];
 
     return new Response(
@@ -898,37 +1112,168 @@ async function handleNotificationsAPI(request: Request): Promise<Response> {
 
 async function handleDemoDataAPI(): Promise<Response> {
   try {
-    // Generate comprehensive demo data
+    // Generate comprehensive demo data with realistic global locations
     const demoReports = [];
-    const countries = ['United States', 'United Kingdom', 'France', 'Germany', 'Canada', 'Australia', 'India', 'Brazil', 'Japan', 'South Korea'];
-    const cities = ['New York', 'London', 'Paris', 'Berlin', 'Toronto', 'Sydney', 'Mumbai', 'São Paulo', 'Tokyo', 'Seoul'];
-    const illnessTypes = ['Upper respiratory infection', 'Migraine', 'Strep throat', 'Gastroenteritis', 'Seasonal allergies', 'COVID-19', 'Influenza', 'Pneumonia'];
-    const symptoms = ['fever', 'cough', 'fatigue', 'headache', 'sore throat', 'nausea', 'body aches', 'runny nose', 'congestion', 'loss of appetite'];
+    
+    // Major cities with realistic coordinates
+    const locations = [
+      // North America
+      { city: 'New York', country: 'United States', lat: 40.7128, lng: -74.0060 },
+      { city: 'Los Angeles', country: 'United States', lat: 34.0522, lng: -118.2437 },
+      { city: 'Chicago', country: 'United States', lat: 41.8781, lng: -87.6298 },
+      { city: 'Toronto', country: 'Canada', lat: 43.6532, lng: -79.3832 },
+      { city: 'Vancouver', country: 'Canada', lat: 49.2827, lng: -123.1207 },
+      { city: 'Mexico City', country: 'Mexico', lat: 19.4326, lng: -99.1332 },
+      
+      // Europe
+      { city: 'London', country: 'United Kingdom', lat: 51.5074, lng: -0.1278 },
+      { city: 'Paris', country: 'France', lat: 48.8566, lng: 2.3522 },
+      { city: 'Berlin', country: 'Germany', lat: 52.5200, lng: 13.4050 },
+      { city: 'Madrid', country: 'Spain', lat: 40.4168, lng: -3.7038 },
+      { city: 'Rome', country: 'Italy', lat: 41.9028, lng: 12.4964 },
+      { city: 'Amsterdam', country: 'Netherlands', lat: 52.3676, lng: 4.9041 },
+      { city: 'Stockholm', country: 'Sweden', lat: 59.3293, lng: 18.0686 },
+      { city: 'Moscow', country: 'Russia', lat: 55.7558, lng: 37.6176 },
+      
+      // Asia
+      { city: 'Tokyo', country: 'Japan', lat: 35.6762, lng: 139.6503 },
+      { city: 'Seoul', country: 'South Korea', lat: 37.5665, lng: 126.9780 },
+      { city: 'Beijing', country: 'China', lat: 39.9042, lng: 116.4074 },
+      { city: 'Shanghai', country: 'China', lat: 31.2304, lng: 121.4737 },
+      { city: 'Mumbai', country: 'India', lat: 19.0760, lng: 72.8777 },
+      { city: 'Delhi', country: 'India', lat: 28.6139, lng: 77.2090 },
+      { city: 'Bangalore', country: 'India', lat: 12.9716, lng: 77.5946 },
+      { city: 'Singapore', country: 'Singapore', lat: 1.3521, lng: 103.8198 },
+      { city: 'Bangkok', country: 'Thailand', lat: 13.7563, lng: 100.5018 },
+      { city: 'Jakarta', country: 'Indonesia', lat: -6.2088, lng: 106.8456 },
+      { city: 'Manila', country: 'Philippines', lat: 14.5995, lng: 120.9842 },
+      { city: 'Ho Chi Minh City', country: 'Vietnam', lat: 10.8231, lng: 106.6297 },
+      
+      // Australia & Oceania
+      { city: 'Sydney', country: 'Australia', lat: -33.8688, lng: 151.2093 },
+      { city: 'Melbourne', country: 'Australia', lat: -37.8136, lng: 144.9631 },
+      { city: 'Auckland', country: 'New Zealand', lat: -36.8485, lng: 174.7633 },
+      
+      // South America
+      { city: 'São Paulo', country: 'Brazil', lat: -23.5505, lng: -46.6333 },
+      { city: 'Rio de Janeiro', country: 'Brazil', lat: -22.9068, lng: -43.1729 },
+      { city: 'Buenos Aires', country: 'Argentina', lat: -34.6118, lng: -58.3960 },
+      { city: 'Lima', country: 'Peru', lat: -12.0464, lng: -77.0428 },
+      { city: 'Bogotá', country: 'Colombia', lat: 4.7110, lng: -74.0721 },
+      { city: 'Santiago', country: 'Chile', lat: -33.4489, lng: -70.6693 },
+      
+      // Africa
+      { city: 'Lagos', country: 'Nigeria', lat: 6.5244, lng: 3.3792 },
+      { city: 'Cairo', country: 'Egypt', lat: 30.0444, lng: 31.2357 },
+      { city: 'Nairobi', country: 'Kenya', lat: -1.2921, lng: 36.8219 },
+      { city: 'Johannesburg', country: 'South Africa', lat: -26.2041, lng: 28.0473 },
+      { city: 'Cape Town', country: 'South Africa', lat: -33.9249, lng: 18.4241 },
+      { city: 'Casablanca', country: 'Morocco', lat: 33.5731, lng: -7.5898 },
+      { city: 'Addis Ababa', country: 'Ethiopia', lat: 9.0320, lng: 38.7488 },
+      { city: 'Kinshasa', country: 'DR Congo', lat: -4.4419, lng: 15.2663 },
+      
+      // Middle East
+      { city: 'Dubai', country: 'United Arab Emirates', lat: 25.2048, lng: 55.2708 },
+      { city: 'Istanbul', country: 'Turkey', lat: 41.0082, lng: 28.9784 },
+      { city: 'Tehran', country: 'Iran', lat: 35.6892, lng: 51.3890 },
+      { city: 'Riyadh', country: 'Saudi Arabia', lat: 24.7136, lng: 46.6753 },
+      { city: 'Baghdad', country: 'Iraq', lat: 33.3152, lng: 44.3661 },
+      { city: 'Amman', country: 'Jordan', lat: 31.9454, lng: 35.9284 }
+    ];
+    
+    const illnessTypes = [
+      'COVID-19', 'Influenza', 'Upper respiratory infection', 'Migraine', 
+      'Gastroenteritis', 'Seasonal allergies', 'Strep throat', 'Pneumonia', 
+      'Asthma', 'Dengue fever', 'Malaria', 'Tuberculosis', 'Mononucleosis',
+      'Appendicitis', 'Laryngitis', 'Vertigo', 'Bronchitis', 'Sinusitis',
+      'Conjunctivitis', 'Urinary tract infection'
+    ];
+    
+    const symptoms = [
+      'fever', 'cough', 'fatigue', 'headache', 'sore throat', 'nausea', 
+      'body aches', 'runny nose', 'congestion', 'shortness of breath', 
+      'diarrhea', 'vomiting', 'abdominal pain', 'chest pain', 'dizziness',
+      'sensitivity to light', 'hoarse voice', 'difficulty swallowing',
+      'swollen lymph nodes', 'rash', 'joint pain', 'chills', 'sweating',
+      'loss of appetite', 'itchy eyes', 'sneezing', 'wheezing', 'chest tightness'
+    ];
 
-    for (let i = 1; i <= 100; i++) {
-      const countryIndex = Math.floor(Math.random() * countries.length);
-      const cityIndex = Math.floor(Math.random() * cities.length);
+    // Generate 200 reports with realistic distribution
+    for (let i = 1; i <= 200; i++) {
+      const locationIndex = Math.floor(Math.random() * locations.length);
+      const location = locations[locationIndex];
       const illnessIndex = Math.floor(Math.random() * illnessTypes.length);
       const numSymptoms = Math.floor(Math.random() * 4) + 1;
       const userSymptoms: string[] = [];
       
-      for (let j = 0; j < numSymptoms; j++) {
-        const symptomIndex = Math.floor(Math.random() * symptoms.length);
-        if (!userSymptoms.includes(symptoms[symptomIndex])) {
-          userSymptoms.push(symptoms[symptomIndex]);
+      // Generate realistic symptoms based on illness type
+      const illnessType = illnessTypes[illnessIndex];
+      let baseSymptoms: string[] = [];
+      
+      // Map illness types to common symptoms
+      switch (illnessType) {
+        case 'COVID-19':
+          baseSymptoms = ['fever', 'cough', 'fatigue', 'body aches', 'loss of taste'];
+          break;
+        case 'Influenza':
+          baseSymptoms = ['fever', 'headache', 'muscle pain', 'fatigue'];
+          break;
+        case 'Upper respiratory infection':
+          baseSymptoms = ['cough', 'congestion', 'sore throat', 'runny nose'];
+          break;
+        case 'Migraine':
+          baseSymptoms = ['headache', 'nausea', 'sensitivity to light'];
+          break;
+        case 'Gastroenteritis':
+          baseSymptoms = ['nausea', 'vomiting', 'diarrhea', 'abdominal pain'];
+          break;
+        case 'Seasonal allergies':
+          baseSymptoms = ['runny nose', 'sneezing', 'itchy eyes', 'congestion'];
+          break;
+        case 'Strep throat':
+          baseSymptoms = ['sore throat', 'fever', 'difficulty swallowing'];
+          break;
+        case 'Pneumonia':
+          baseSymptoms = ['fever', 'cough', 'shortness of breath', 'chest pain'];
+          break;
+        case 'Asthma':
+          baseSymptoms = ['cough', 'wheezing', 'chest tightness'];
+          break;
+        case 'Dengue fever':
+          baseSymptoms = ['fever', 'rash', 'joint pain'];
+          break;
+        case 'Malaria':
+          baseSymptoms = ['fever', 'chills', 'sweating'];
+          break;
+        default:
+          baseSymptoms = symptoms.slice(0, 3);
+      }
+      
+      // Add base symptoms and some random additional ones
+      userSymptoms.push(...baseSymptoms.slice(0, Math.min(numSymptoms, baseSymptoms.length)));
+      
+      // Add random symptoms if needed
+      while (userSymptoms.length < numSymptoms) {
+        const randomSymptom = symptoms[Math.floor(Math.random() * symptoms.length)];
+        if (!userSymptoms.includes(randomSymptom)) {
+          userSymptoms.push(randomSymptom);
         }
       }
 
+      // Add some location variation (small random offset)
+      const latOffset = (Math.random() - 0.5) * 0.1;
+      const lngOffset = (Math.random() - 0.5) * 0.1;
+
       const report = {
         id: i,
-        user_id: `user_${Math.floor(Math.random() * 1000)}`,
+        user_id: `user_${Math.floor(Math.random() * 10000)}`,
         symptoms: userSymptoms,
-        illness_type: illnessTypes[illnessIndex],
+        illness_type: illnessType,
         severity: ['mild', 'moderate', 'severe'][Math.floor(Math.random() * 3)],
-        latitude: (Math.random() * 180) - 90,
-        longitude: (Math.random() * 360) - 180,
-        country: countries[countryIndex],
-        city: cities[cityIndex],
+        latitude: location.lat + latOffset,
+        longitude: location.lng + lngOffset,
+        country: location.country,
+        city: location.city,
         created_at: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString()
       };
       
@@ -939,7 +1284,7 @@ async function handleDemoDataAPI(): Promise<Response> {
       JSON.stringify({ 
         message: 'Demo data generated successfully',
         count: demoReports.length,
-        reports: demoReports.slice(0, 10) // Return first 10 for preview
+        reports: demoReports.slice(0, 20) // Return first 20 for preview
       }),
       {
         status: 200,
