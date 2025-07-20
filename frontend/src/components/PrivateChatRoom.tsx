@@ -56,6 +56,41 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isComponentMountedRef = useRef(true);
 
+  const handleWebSocketMessage = (data: any) => {
+    try {
+      switch (data.type) {
+        case 'private_room_created':
+          setCurrentRoom(data.room);
+          setActiveTab('chat');
+          setInviteCode(data.room.inviteCode);
+          break;
+        case 'private_room_joined':
+          setCurrentRoom(data.room);
+          setActiveTab('chat');
+          break;
+        case 'private_message_sent':
+          if (currentRoom && data.roomId === currentRoom.id) {
+            setCurrentRoom(prev => prev ? {
+              ...prev,
+              messages: [...prev.messages, data.message]
+            } : null);
+          }
+          break;
+        case 'private_room_left':
+          setCurrentRoom(null);
+          setActiveTab('create');
+          break;
+        case 'error':
+          console.error('WebSocket server error:', data.message);
+          setConnectionError(data.message || 'Server error occurred');
+          break;
+      }
+    } catch (error) {
+      console.error('Error handling WebSocket message:', error);
+      setConnectionError('Failed to handle server message');
+    }
+  };
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -68,8 +103,6 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
     if (!isVisible) return;
 
     const connectWebSocket = () => {
-      if (!isComponentMountedRef.current) return;
-
       try {
         setConnectionStatus('connecting');
         setConnectionError(null);
@@ -79,13 +112,12 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
           websocket.close();
         }
 
-        // Connect to WebSocket server
-        const ws = new WebSocket('wss://healthpulse-api.healthsathi.workers.dev/chat');
+        const ws = new WebSocket('wss://healthpulse-api.healthsathi.workers.dev/ws');
         setWebsocket(ws);
 
         ws.onopen = () => {
           if (!isComponentMountedRef.current) return;
-          console.log('WebSocket connected for private chat room');
+          console.log('WebSocket connected for private chat');
           setConnectionStatus('connected');
           setConnectionError(null);
         };
@@ -104,83 +136,46 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
         ws.onerror = (error) => {
           if (!isComponentMountedRef.current) return;
           console.error('WebSocket error:', error);
-          setConnectionError('Connection error occurred');
           setConnectionStatus('error');
+          setConnectionError('Connection error occurred');
         };
 
-        ws.onclose = () => {
+        ws.onclose = (event) => {
           if (!isComponentMountedRef.current) return;
           console.log('WebSocket disconnected');
           setConnectionStatus('disconnected');
+          
+          // Attempt to reconnect if not a normal closure and component is visible
+          if (event.code !== 1000 && isComponentMountedRef.current && isVisible) {
+            setConnectionError('Connection lost, reconnecting...');
+            setTimeout(() => {
+              if (isComponentMountedRef.current && isVisible) {
+                connectWebSocket();
+              }
+            }, 3000);
+          }
         };
 
       } catch (error) {
-        console.error('Error connecting to WebSocket:', error);
-        setConnectionError('Failed to connect');
+        console.error('Failed to create WebSocket connection:', error);
         setConnectionStatus('error');
+        setConnectionError('Failed to establish connection');
       }
     };
 
     connectWebSocket();
-  }, [isVisible]);
+
+    return () => {
+      if (websocket) {
+        websocket.close();
+      }
+    };
+  }, [isVisible, handleWebSocketMessage, websocket]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentRoom?.messages]);
-
-  const handleWebSocketMessage = (data: any) => {
-    try {
-      switch (data.type) {
-        case 'private_room_created':
-          setCurrentRoom(data.room);
-          setActiveTab('chat');
-          break;
-        case 'private_room_joined':
-          setCurrentRoom(data.room);
-          setActiveTab('chat');
-          break;
-        case 'private_message_sent':
-          // Message was sent successfully
-          break;
-        case 'new_private_message':
-          if (currentRoom && data.roomId === currentRoom.id) {
-            setCurrentRoom(prev => prev ? {
-              ...prev,
-              messages: [...prev.messages, data.message]
-            } : null);
-          }
-          break;
-        case 'private_room_participant_joined':
-          if (currentRoom && data.roomId === currentRoom.id) {
-            setCurrentRoom(prev => prev ? {
-              ...prev,
-              participantId: data.participantId,
-              participantName: data.participantName,
-              messages: data.room.messages
-            } : null);
-          }
-          break;
-        case 'private_room_participant_left':
-          if (currentRoom && data.roomId === currentRoom.id) {
-            setCurrentRoom(prev => prev ? {
-              ...prev,
-              participantId: undefined,
-              participantName: undefined,
-              messages: data.room.messages
-            } : null);
-          }
-          break;
-        case 'error':
-          console.error('WebSocket server error:', data.message);
-          setConnectionError(data.message || 'Server error occurred');
-          break;
-      }
-    } catch (error) {
-      console.error('Error handling WebSocket message:', error);
-      setConnectionError('Failed to handle server message');
-    }
-  };
 
   const createRoom = () => {
     if (websocket && websocket.readyState === WebSocket.OPEN) {
