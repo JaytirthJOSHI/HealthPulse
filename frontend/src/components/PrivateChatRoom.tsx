@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Pusher from 'pusher-js';
 import { 
   MessageCircle, 
   Plus, 
@@ -54,14 +55,72 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
   const [isJoining, setIsJoining] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isComponentMountedRef = useRef(true);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pusherRef = useRef<Pusher | null>(null);
+  const channelRef = useRef<any>(null);
+
+  // Initialize Pusher
+  useEffect(() => {
+    if (!isVisible) return;
+
+    const pusher = new Pusher('cee5f705d767a20f69f7', {
+      cluster: 'us2',
+      forceTLS: true
+    });
+
+    pusherRef.current = pusher;
+
+    // Subscribe to private chat channel
+    const channel = pusher.subscribe('private-chat');
+    channelRef.current = channel;
+
+    // Handle room creation events
+    channel.bind('room-created', (data: any) => {
+      if (isComponentMountedRef.current) {
+        console.log('Room created:', data);
+      }
+    });
+
+    // Handle connection events
+    pusher.connection.bind('connected', () => {
+      if (isComponentMountedRef.current) {
+        setConnectionStatus('connected');
+        setConnectionError(null);
+      }
+    });
+
+    pusher.connection.bind('error', (error: any) => {
+      if (isComponentMountedRef.current) {
+        console.error('Pusher connection error:', error);
+        setConnectionStatus('error');
+        setConnectionError('Connection failed');
+      }
+    });
+
+    pusher.connection.bind('disconnected', () => {
+      if (isComponentMountedRef.current) {
+        setConnectionStatus('disconnected');
+      }
+    });
+
+    return () => {
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+      }
+      if (pusherRef.current) {
+        pusherRef.current.disconnect();
+      }
+    };
+  }, [isVisible]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       isComponentMountedRef.current = false;
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+      }
+      if (pusherRef.current) {
+        pusherRef.current.disconnect();
       }
     };
   }, []);
@@ -94,7 +153,34 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
         setActiveTab('chat');
         setInviteCode(data.room.inviteCode);
         setConnectionStatus('connected');
-        startPolling(data.room.id);
+        
+        // Subscribe to room-specific channel
+        if (pusherRef.current && data.room) {
+          const roomChannel = pusherRef.current.subscribe(`room-${data.room.id}`);
+          
+          // Handle new messages
+          roomChannel.bind('new-message', (data: any) => {
+            if (isComponentMountedRef.current && currentRoom) {
+              setCurrentRoom(prev => prev ? {
+                ...prev,
+                messages: [...prev.messages, data.message]
+              } : null);
+            }
+          });
+
+          // Handle user joined
+          roomChannel.bind('user-joined', (data: any) => {
+            if (isComponentMountedRef.current && currentRoom) {
+              setCurrentRoom(prev => prev ? {
+                ...prev,
+                participantId: data.userId,
+                participantName: data.userNickname
+              } : null);
+            }
+          });
+
+          channelRef.current = roomChannel;
+        }
       } else {
         setConnectionError(data.message || 'Failed to create room');
         setConnectionStatus('error');
@@ -136,7 +222,34 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
         setCurrentRoom(data.room);
         setActiveTab('chat');
         setConnectionStatus('connected');
-        startPolling(data.room.id);
+        
+        // Subscribe to room-specific channel
+        if (pusherRef.current && data.room) {
+          const roomChannel = pusherRef.current.subscribe(`room-${data.room.id}`);
+          
+          // Handle new messages
+          roomChannel.bind('new-message', (data: any) => {
+            if (isComponentMountedRef.current && currentRoom) {
+              setCurrentRoom(prev => prev ? {
+                ...prev,
+                messages: [...prev.messages, data.message]
+              } : null);
+            }
+          });
+
+          // Handle user joined
+          roomChannel.bind('user-joined', (data: any) => {
+            if (isComponentMountedRef.current && currentRoom) {
+              setCurrentRoom(prev => prev ? {
+                ...prev,
+                participantId: data.userId,
+                participantName: data.userNickname
+              } : null);
+            }
+          });
+
+          channelRef.current = roomChannel;
+        }
       } else {
         setConnectionError(data.message || 'Failed to join room');
         setConnectionStatus('error');
@@ -171,7 +284,7 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
       
       if (data.success) {
         setMessageInput('');
-        // Message will be picked up by polling
+        // Message will be received via Pusher event
       } else {
         setConnectionError('Failed to send message');
       }
@@ -181,36 +294,10 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
     }
   };
 
-  const startPolling = (roomId: string) => {
-    // Clear existing interval
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-    }
-
-    // Poll for new messages every 2 seconds
-    pollingIntervalRef.current = setInterval(async () => {
-      if (!isComponentMountedRef.current) return;
-
-      try {
-        const response = await fetch(`https://healthpulse-api.healthsathi.workers.dev/api/private-rooms/${roomId}/messages`);
-        const data = await response.json();
-        
-        if (data.success && currentRoom) {
-          setCurrentRoom(prev => prev ? {
-            ...prev,
-            messages: data.messages
-          } : null);
-        }
-      } catch (error) {
-        console.error('Error polling messages:', error);
-      }
-    }, 2000);
-  };
-
   const leaveRoom = () => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
+    if (channelRef.current) {
+      channelRef.current.unsubscribe();
+      channelRef.current = null;
     }
     setCurrentRoom(null);
     setActiveTab('create');

@@ -1,5 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 import { createClient } from '@supabase/supabase-js';
+import Pusher from 'pusher';
 
 interface Env {
   SUPABASE_URL: string;
@@ -370,6 +371,15 @@ let symptomReports: any[] = [];
 let aiConsultations: any[] = [];
 let phoneNotifications: any[] = [];
 
+// Initialize Pusher
+const pusher = new Pusher({
+  appId: '2025070',
+  key: 'cee5f705d767a20f69f7',
+  secret: '84c9dd5a6418712b199f',
+  cluster: 'us2',
+  useTLS: true
+});
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     try {
@@ -607,6 +617,10 @@ export default {
 
         if (path.startsWith('/api/private-rooms/') && path.endsWith('/messages') && request.method === 'GET') {
           return await handleGetPrivateRoomMessages(request);
+        }
+
+        if (path.startsWith('/api/private-rooms/') && path.endsWith('/messages') && request.method === 'POST') {
+          return await handleSendPrivateMessageAPI(request);
         }
 
       // 404 for unknown routes
@@ -3329,9 +3343,17 @@ async function handleCreatePrivateRoomAPI(request: Request): Promise<Response> {
     // Create new private chat room
     const room = createPrivateChatRoom(userId, userNickname);
     
+    // Trigger Pusher event for room creation
+    await pusher.trigger('private-chat', 'room-created', {
+      roomId: room.id,
+      inviteCode: room.inviteCode,
+      creatorName: userNickname
+    });
+    
     return new Response(
       JSON.stringify({
         success: true,
+        room: room,
         roomId: room.id,
         inviteCode: room.inviteCode
       }),
@@ -3423,11 +3445,17 @@ async function handleJoinPrivateRoomAPI(request: Request): Promise<Response> {
       timestamp: new Date().toISOString()
     });
     
-    // Note: Real-time notifications will be handled via WebSocket when users connect
+    // Trigger Pusher event for room join
+    await pusher.trigger(`room-${room.id}`, 'user-joined', {
+      userId,
+      userNickname,
+      roomId: room.id
+    });
     
     return new Response(
       JSON.stringify({
         success: true,
+        room: room,
         roomId: room.id,
         inviteCode: room.inviteCode
       }),
@@ -3524,6 +3552,89 @@ async function handleGetPrivateRoomMessages(request: Request): Promise<Response>
     );
   } catch (error) {
     console.error('Error in handleGetPrivateRoomMessages:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  }
+}
+
+async function handleSendPrivateMessageAPI(request: Request): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split('/');
+    const roomId = pathParts[pathParts.length - 2]; // Get roomId from /api/private-rooms/{roomId}/messages
+    
+    const { userId, userNickname, message, messageType = 'text' } = await request.json() as any;
+    
+    const room = privateChatRooms.get(roomId);
+    if (!room) {
+      return new Response(
+        JSON.stringify({ error: 'Room not found' }),
+        {
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          },
+        }
+      );
+    }
+
+    // Check if user is in the room
+    if (room.creatorId !== userId && room.participantId !== userId) {
+      return new Response(
+        JSON.stringify({ error: 'You are not a member of this room' }),
+        {
+          status: 403,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          },
+        }
+      );
+    }
+
+    // Create new message
+    const newMessage: PrivateMessage = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      senderId: userId,
+      senderName: userNickname,
+      message: message.trim(),
+      messageType,
+      timestamp: new Date().toISOString()
+    };
+
+    // Add message to room
+    room.messages.push(newMessage);
+
+    // Trigger Pusher event for new message
+    await pusher.trigger(`room-${roomId}`, 'new-message', {
+      message: newMessage,
+      roomId
+    });
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: newMessage
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in handleSendPrivateMessageAPI:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
       {

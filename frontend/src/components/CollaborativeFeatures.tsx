@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Pusher from 'pusher-js';
 import { 
   Users, 
   MessageCircle, 
@@ -64,14 +65,80 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
   const [userNickname] = useState(`HealthUser_${Math.random().toString(36).substr(2, 5)}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isComponentMountedRef = useRef(true);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pusherRef = useRef<Pusher | null>(null);
+  const channelRef = useRef<any>(null);
+
+  // Initialize Pusher
+  useEffect(() => {
+    if (!isVisible) return;
+
+    const pusher = new Pusher('cee5f705d767a20f69f7', {
+      cluster: 'us2',
+      forceTLS: true
+    });
+
+    pusherRef.current = pusher;
+
+    // Subscribe to collaborative features channel
+    const channel = pusher.subscribe('collaborative-features');
+    channelRef.current = channel;
+
+    // Handle group updates
+    channel.bind('groups-updated', (data: any) => {
+      if (isComponentMountedRef.current) {
+        setHealthGroups(data.groups || []);
+      }
+    });
+
+    // Handle challenge updates
+    channel.bind('challenges-updated', (data: any) => {
+      if (isComponentMountedRef.current) {
+        setHealthChallenges(data.challenges || []);
+      }
+    });
+
+    // Handle new group messages
+    channel.bind('group-message', (data: any) => {
+      if (isComponentMountedRef.current && selectedGroup && data.groupId === selectedGroup.id) {
+        setSelectedGroup(prev => prev ? {
+          ...prev,
+          messages: [...prev.messages, data.message]
+        } : null);
+      }
+    });
+
+    // Handle connection events
+    pusher.connection.bind('connected', () => {
+      if (isComponentMountedRef.current) {
+        console.log('Connected to collaborative features');
+      }
+    });
+
+    pusher.connection.bind('error', (error: any) => {
+      if (isComponentMountedRef.current) {
+        console.error('Pusher connection error:', error);
+      }
+    });
+
+    return () => {
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+      }
+      if (pusherRef.current) {
+        pusherRef.current.disconnect();
+      }
+    };
+  }, [isVisible, selectedGroup]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       isComponentMountedRef.current = false;
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+      }
+      if (pusherRef.current) {
+        pusherRef.current.disconnect();
       }
     };
   }, []);
@@ -125,7 +192,23 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
       const data = await response.json();
       if (data.success) {
         setSelectedGroup(data.group);
-        startPollingGroupMessages(groupId);
+        
+        // Subscribe to group-specific channel
+        if (pusherRef.current && data.group) {
+          const groupChannel = pusherRef.current.subscribe(`group-${data.group.id}`);
+          
+          // Handle new group messages
+          groupChannel.bind('new-message', (data: any) => {
+            if (isComponentMountedRef.current && selectedGroup) {
+              setSelectedGroup(prev => prev ? {
+                ...prev,
+                messages: [...prev.messages, data.message]
+              } : null);
+            }
+          });
+
+          channelRef.current = groupChannel;
+        }
       }
     } catch (error) {
       console.error('Error joining group:', error);
@@ -152,37 +235,11 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
       const data = await response.json();
       if (data.success) {
         setMessageInput('');
-        // Message will be picked up by polling
+        // Message will be received via Pusher event
       }
     } catch (error) {
       console.error('Error sending group message:', error);
     }
-  };
-
-  const startPollingGroupMessages = (groupId: string) => {
-    // Clear existing interval
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-    }
-
-    // Poll for new messages every 3 seconds
-    pollingIntervalRef.current = setInterval(async () => {
-      if (!isComponentMountedRef.current) return;
-
-      try {
-        const response = await fetch(`https://healthpulse-api.healthsathi.workers.dev/api/collaborative/groups/${groupId}/messages`);
-        const data = await response.json();
-        
-        if (data.success && selectedGroup) {
-          setSelectedGroup(prev => prev ? {
-            ...prev,
-            messages: data.messages
-          } : null);
-        }
-      } catch (error) {
-        console.error('Error polling group messages:', error);
-      }
-    }, 3000);
   };
 
   const joinChallenge = async (challengeId: string) => {
