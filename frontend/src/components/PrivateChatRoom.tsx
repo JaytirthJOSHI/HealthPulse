@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageCircle, Send, X, Users, UserPlus } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import Ably from 'ably';
@@ -86,6 +86,27 @@ const PrivateChatRoom: React.FC = () => {
     }
   }, [currentRoom]);
 
+  const updateAvailableUsers = useCallback(async () => {
+    if (!ably) return;
+
+    try {
+      const presenceChannel = ably.channels.get('user-presence');
+      const members = await presenceChannel.presence.get();
+      
+      const users = members
+        .filter(member => member.clientId !== userId)
+        .map(member => ({
+          id: member.clientId,
+          nickname: member.data.nickname,
+          lastSeen: Date.now()
+        }));
+      
+      setAvailableUsers(users);
+    } catch (error) {
+      console.error('Error updating available users:', error);
+    }
+  }, [ably, userId]);
+
   // Subscribe to presence and user updates
   useEffect(() => {
     if (!ably || !userNickname.trim()) return;
@@ -113,28 +134,7 @@ const PrivateChatRoom: React.FC = () => {
       presenceChannel.presence.leave();
       clearInterval(interval);
     };
-  }, [ably, userNickname]);
-
-  const updateAvailableUsers = async () => {
-    if (!ably) return;
-
-    try {
-      const presenceChannel = ably.channels.get('user-presence');
-      const members = await presenceChannel.presence.get();
-      
-      const users = members
-        .filter(member => member.clientId !== userId)
-        .map(member => ({
-          id: member.clientId,
-          nickname: member.data.nickname,
-          lastSeen: Date.now()
-        }));
-      
-      setAvailableUsers(users);
-    } catch (error) {
-      console.error('Error updating available users:', error);
-    }
-  };
+  }, [ably, userNickname, updateAvailableUsers]);
 
   const handleNameSubmit = () => {
     if (userNickname.trim()) {
