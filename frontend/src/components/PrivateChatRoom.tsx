@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   MessageCircle, 
   Plus, 
@@ -56,7 +56,7 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isComponentMountedRef = useRef(true);
 
-  const handleWebSocketMessage = (data: any) => {
+  const handleWebSocketMessage = useCallback((data: any) => {
     try {
       switch (data.type) {
         case 'private_room_created':
@@ -89,7 +89,7 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
       console.error('Error handling WebSocket message:', error);
       setConnectionError('Failed to handle server message');
     }
-  };
+  }, [currentRoom]);
 
   // Cleanup on unmount
   useEffect(() => {

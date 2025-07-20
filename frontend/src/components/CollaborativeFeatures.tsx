@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Users, 
   MessageCircle, 
@@ -64,12 +64,11 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
   const [userId, setUserId] = useState<string>('');
   const [userNickname, setUserNickname] = useState<string>('');
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isComponentMountedRef = useRef(true);
 
-  const handleWebSocketMessage = (data: any) => {
+  const handleWebSocketMessage = useCallback((data: any) => {
     try {
       switch (data.type) {
         case 'collaborative_joined':
@@ -116,7 +115,7 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
       console.error('Error handling WebSocket message:', error);
       // setConnectionError('Failed to handle server message'); // Removed as per edit hint
     }
-  };
+  }, [selectedGroup]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -220,18 +219,18 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [isVisible, handleWebSocketMessage, pollingInterval, websocket]);
+  }, [isVisible, handleWebSocketMessage, websocket]);
 
   // Start polling for messages when a group is selected
   useEffect(() => {
-    if (selectedGroup && pollingInterval) {
+    if (selectedGroup) {
       const interval = setInterval(() => {
         pollGroupMessages(selectedGroup.id);
       }, 5000); // Poll every 5 seconds
 
       return () => clearInterval(interval);
     }
-  }, [selectedGroup, pollingInterval]);
+  }, [selectedGroup]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
