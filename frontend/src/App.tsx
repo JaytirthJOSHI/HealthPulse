@@ -6,7 +6,7 @@ import { ToastProvider } from './contexts/ToastContext';
 import { SupabaseProvider } from './contexts/SupabaseContext';
 import { RealTimeProvider } from './contexts/RealTimeContext';
 import Header from './components/Header';
-import HealthMap from './components/HealthMap';
+import HomeScreen from './components/HomeScreen';
 import SymptomReport from './components/SymptomReport';
 import About from './components/About';
 import PhoneAI from './components/PhoneAI';
@@ -49,7 +49,7 @@ function App() {
             />
             <main id="main-content" className="container mx-auto px-4 py-6 flex-grow" aria-label="Main Content">
               <Routes>
-                <Route path="/" element={<HealthMap />} />
+                <Route path="/" element={<HomeScreen />} />
                 <Route path="/report" element={<SymptomReport />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/phone-ai" element={<PhoneAI />} />
