@@ -719,6 +719,14 @@ function handleWebSocketMessage(websocket: WebSocket, data: any, socketId: strin
       case 'leave_private_room':
         handleLeavePrivateRoom(websocket, data, socketId);
         break;
+      case 'connect':
+        // Simple connection test
+        sendWebSocketMessage(websocket, { 
+          type: 'connected', 
+          message: 'Successfully connected to HealthPulse WebSocket server',
+          socketId 
+        });
+        break;
       default:
         console.log(`Unknown message type: ${data.type}`);
         sendWebSocketMessage(websocket, { type: 'error', message: 'Unknown message type' });

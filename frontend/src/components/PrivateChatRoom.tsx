@@ -120,12 +120,20 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
           console.log('WebSocket connected for private chat');
           setConnectionStatus('connected');
           setConnectionError(null);
+          
+          // Send initial connection message
+          ws.send(JSON.stringify({
+            type: 'connect',
+            userId,
+            userNickname
+          }));
         };
 
         ws.onmessage = (event) => {
           if (!isComponentMountedRef.current) return;
           try {
             const data = JSON.parse(event.data);
+            console.log('WebSocket message received:', data);
             handleWebSocketMessage(data);
           } catch (error) {
             console.error('Error parsing WebSocket message:', error);
@@ -137,17 +145,17 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
           if (!isComponentMountedRef.current) return;
           console.error('WebSocket error:', error);
           setConnectionStatus('error');
-          setConnectionError('Connection error occurred');
+          setConnectionError('Connection error occurred - please check your internet connection');
         };
 
         ws.onclose = (event) => {
           if (!isComponentMountedRef.current) return;
-          console.log('WebSocket disconnected');
+          console.log('WebSocket disconnected with code:', event.code, 'reason:', event.reason);
           setConnectionStatus('disconnected');
           
           // Attempt to reconnect if not a normal closure and component is visible
           if (event.code !== 1000 && isComponentMountedRef.current && isVisible) {
-            setConnectionError('Connection lost, reconnecting...');
+            setConnectionError(`Connection lost (code: ${event.code}), reconnecting...`);
             setTimeout(() => {
               if (isComponentMountedRef.current && isVisible) {
                 connectWebSocket();
@@ -170,7 +178,7 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
         websocket.close();
       }
     };
-  }, [isVisible, handleWebSocketMessage, websocket]);
+  }, [isVisible, handleWebSocketMessage, websocket, userId, userNickname]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
