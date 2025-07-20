@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { SymptomReport, HealthTip, Disease, Region, DiseaseRisk, HealthAggregate } from '../types';
+import { SymptomReport, HealthTip, HealthAggregate } from '../types';
 
 // Create a single shared Supabase client instance
 export const supabaseClient = createClient(

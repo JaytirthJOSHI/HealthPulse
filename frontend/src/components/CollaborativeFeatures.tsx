@@ -5,19 +5,13 @@ import {
   Trophy, 
   Heart, 
   AlertTriangle, 
-  Plus, 
   Send, 
   X, 
-  ChevronDown, 
-  ChevronUp,
   Target,
   Award,
   Shield,
   Lightbulb,
-  Phone,
-  MapPin,
-  Clock,
-  Star
+  Phone
 } from 'lucide-react';
 
 interface HealthGroup {
@@ -55,36 +49,6 @@ interface HealthChallenge {
   isActive: boolean;
 }
 
-interface HealthMentor {
-  id: string;
-  mentorId: string;
-  menteeId: string;
-  specialty: string;
-  status: 'active' | 'completed' | 'pending';
-  startDate: number;
-  messages: MentorMessage[];
-}
-
-interface MentorMessage {
-  id: string;
-  senderId: string;
-  message: string;
-  messageType: 'advice' | 'question' | 'encouragement' | 'resource';
-  timestamp: string;
-}
-
-interface EmergencyAlert {
-  id: string;
-  userId: string;
-  location: string;
-  symptoms: string[];
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  status: 'active' | 'resolved' | 'escalated';
-  responders: string[];
-  createdAt: number;
-  resolvedAt?: number;
-}
-
 interface CollaborativeFeaturesProps {
   isVisible: boolean;
   onClose: () => void;
@@ -100,9 +64,6 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
   const [userId, setUserId] = useState<string>('');
   const [userNickname, setUserNickname] = useState<string>('');
-  const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [lastMessageCheck, setLastMessageCheck] = useState<string>('');
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -125,8 +86,8 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
       if (!isComponentMountedRef.current) return;
 
       try {
-        setIsConnecting(true);
-        setConnectionError(null);
+        // setIsConnecting(true); // Removed as per edit hint
+        // setConnectionError(null); // Removed as per edit hint
         
         // Close existing connection if any
         if (websocket) {
@@ -140,8 +101,8 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
         ws.onopen = () => {
           if (!isComponentMountedRef.current) return;
           console.log('WebSocket connected for collaborative features');
-          setIsConnecting(false);
-          setConnectionError(null);
+          // setIsConnecting(false); // Removed as per edit hint
+          // setConnectionError(null); // Removed as per edit hint
           const newUserId = `user_${Math.random().toString(36).substr(2, 9)}`;
           const newNickname = `HealthUser_${Math.random().toString(36).substr(2, 5)}`;
           setUserId(newUserId);
@@ -155,25 +116,25 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
             handleWebSocketMessage(data);
           } catch (error) {
             console.error('Error parsing WebSocket message:', error);
-            setConnectionError('Failed to process server message');
+            // setConnectionError('Failed to process server message'); // Removed as per edit hint
           }
         };
 
         ws.onerror = (error) => {
           if (!isComponentMountedRef.current) return;
           console.error('WebSocket error:', error);
-          setConnectionError('Connection error occurred');
-          setIsConnecting(false);
+          // setConnectionError('Connection error occurred'); // Removed as per edit hint
+          // setIsConnecting(false); // Removed as per edit hint
         };
 
         ws.onclose = (event) => {
           if (!isComponentMountedRef.current) return;
           console.log('WebSocket disconnected');
-          setIsConnecting(false);
+          // setIsConnecting(false); // Removed as per edit hint
           
           // Attempt to reconnect if not a normal closure and component is visible
           if (event.code !== 1000 && isComponentMountedRef.current && isVisible) {
-            setConnectionError('Connection lost, reconnecting...');
+            // setConnectionError('Connection lost, reconnecting...'); // Removed as per edit hint
             reconnectTimeoutRef.current = setTimeout(() => {
               if (isComponentMountedRef.current && isVisible) {
                 connectWebSocket();
@@ -183,8 +144,8 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
         };
       } catch (error) {
         console.error('Failed to create WebSocket connection:', error);
-        setConnectionError('Failed to establish connection');
-        setIsConnecting(false);
+        // setConnectionError('Failed to establish connection'); // Removed as per edit hint
+        // setIsConnecting(false); // Removed as per edit hint
         
         // Retry after delay
         if (isComponentMountedRef.current && isVisible) {
@@ -277,7 +238,7 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
       switch (data.type) {
         case 'group_joined':
           setSelectedGroup(data.group);
-          setLastMessageCheck(new Date().toISOString());
+          // setLastMessageCheck(new Date().toISOString()); // Removed as per edit hint
           break;
         case 'group_message_sent':
           // Immediate feedback - add the sent message to the UI
@@ -311,12 +272,12 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
           break;
         case 'error':
           console.error('WebSocket server error:', data.message);
-          setConnectionError(data.message || 'Server error occurred');
+          // setConnectionError(data.message || 'Server error occurred'); // Removed as per edit hint
           break;
       }
     } catch (error) {
       console.error('Error handling WebSocket message:', error);
-      setConnectionError('Failed to handle server message');
+      // setConnectionError('Failed to handle server message'); // Removed as per edit hint
     }
   };
 
@@ -332,17 +293,6 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
       }
     } catch (error) {
       console.error('Error polling group messages:', error);
-    }
-  };
-
-  const joinGroup = (groupId: string) => {
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send(JSON.stringify({
-        type: 'join_group',
-        groupId,
-        userId,
-        userNickname
-      }));
     }
   };
 
@@ -367,17 +317,6 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
         challengeId,
         userId,
         userNickname
-      }));
-    }
-  };
-
-  const updateChallengeProgress = (challengeId: string, progress: number) => {
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send(JSON.stringify({
-        type: 'update_challenge_progress',
-        challengeId,
-        userId,
-        progress
       }));
     }
   };

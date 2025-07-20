@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Users, 
   MessageCircle, 
   Plus, 
   Send, 
@@ -23,7 +22,7 @@ interface PrivateMessage {
   timestamp: string;
 }
 
-interface PrivateChatRoom {
+interface ChatRoom {
   id: string;
   inviteCode: string;
   creatorId: string;
@@ -47,7 +46,7 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
   const [messageInput, setMessageInput] = useState('');
   const [userId] = useState(`user_${Math.random().toString(36).substr(2, 9)}`);
   const [userNickname] = useState(`User_${Math.random().toString(36).substr(2, 5)}`);
-  const [currentRoom, setCurrentRoom] = useState<PrivateChatRoom | null>(null);
+  const [currentRoom, setCurrentRoom] = useState<ChatRoom | null>(null);
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   const [connectionError, setConnectionError] = useState<string | null>(null);
