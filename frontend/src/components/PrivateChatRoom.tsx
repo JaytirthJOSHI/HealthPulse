@@ -165,12 +165,9 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
 
   const connectToAblyChannel = (roomId: string) => {
     try {
-      // Load Ably dynamically
-      const script = document.createElement('script');
-      script.src = 'https://cdn.ably.io/ably-1.2.5.min.js';
-      script.onload = () => {
-        // @ts-ignore
-        const Ably = window.Ably;
+      // Check if Ably is already loaded
+      if (typeof window !== 'undefined' && (window as any).Ably) {
+        const Ably = (window as any).Ably;
         const ably = new Ably.Realtime(ABLY_API_KEY);
         
         const channel = ably.channels.get(`${ABLY_CHANNEL_PREFIX}${roomId}`);
@@ -194,7 +191,54 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
 
         ablyChannelRef.current = channel;
         setConnectionStatus('connected');
+        return;
+      }
+
+      // Load Ably dynamically with error handling
+      const script = document.createElement('script');
+      script.src = 'https://cdn.ably.io/ably-1.2.5.min.js';
+      script.crossOrigin = 'anonymous';
+      
+      script.onload = () => {
+        try {
+          // @ts-ignore
+          const Ably = window.Ably;
+          const ably = new Ably.Realtime(ABLY_API_KEY);
+          
+          const channel = ably.channels.get(`${ABLY_CHANNEL_PREFIX}${roomId}`);
+          
+          // Subscribe to messages
+          channel.subscribe('message', (message: any) => {
+            const newMessage: PrivateMessage = {
+              id: message.id,
+              senderId: message.data.senderId,
+              senderName: message.data.senderName,
+              message: message.data.message,
+              messageType: message.data.messageType || 'text',
+              timestamp: message.timestamp
+            };
+
+            setCurrentRoom(prev => prev ? {
+              ...prev,
+              messages: [...prev.messages, newMessage]
+            } : null);
+          });
+
+          ablyChannelRef.current = channel;
+          setConnectionStatus('connected');
+        } catch (error) {
+          console.error('Error initializing Ably:', error);
+          setConnectionStatus('error');
+          setConnectionError('Failed to connect to chat service');
+        }
       };
+      
+      script.onerror = () => {
+        console.error('Failed to load Ably script');
+        setConnectionStatus('error');
+        setConnectionError('Chat service is currently unavailable');
+      };
+      
       document.head.appendChild(script);
     } catch (error) {
       console.error('Error connecting to Ably:', error);
@@ -204,24 +248,58 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
   };
 
   const sendMessage = async () => {
-    if (!messageInput.trim() || !currentRoom || !ablyChannelRef.current) return;
+    if (!messageInput.trim() || !currentRoom) return;
 
     const messageText = messageInput.trim();
     
     try {
-      // Publish message to Ably channel
-      await ablyChannelRef.current.publish('message', {
-        senderId: userId,
-        senderName: userNickname,
-        message: messageText,
-        messageType: 'text',
-        timestamp: new Date().toISOString()
-      });
+      // Try to send via Ably if available
+      if (ablyChannelRef.current) {
+        await ablyChannelRef.current.publish('message', {
+          senderId: userId,
+          senderName: userNickname,
+          message: messageText,
+          messageType: 'text',
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        // Fallback: add message locally
+        const newMessage: PrivateMessage = {
+          id: `local_${Date.now()}`,
+          senderId: userId,
+          senderName: userNickname,
+          message: messageText,
+          messageType: 'text',
+          timestamp: new Date().toISOString()
+        };
+
+        setCurrentRoom(prev => prev ? {
+          ...prev,
+          messages: [...prev.messages, newMessage]
+        } : null);
+      }
 
       setMessageInput('');
     } catch (error) {
       console.error('Error sending message:', error);
       setConnectionError('Failed to send message');
+      
+      // Fallback: add message locally even if Ably fails
+      const newMessage: PrivateMessage = {
+        id: `local_${Date.now()}`,
+        senderId: userId,
+        senderName: userNickname,
+        message: messageText,
+        messageType: 'text',
+        timestamp: new Date().toISOString()
+      };
+
+      setCurrentRoom(prev => prev ? {
+        ...prev,
+        messages: [...prev.messages, newMessage]
+      } : null);
+      
+      setMessageInput('');
     }
   };
 
