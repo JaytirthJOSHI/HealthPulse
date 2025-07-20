@@ -305,6 +305,18 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
 
         {/* Content */}
         <div className="flex-1 overflow-hidden">
+          {/* Map at the top */}
+          <div style={{ width: '100%', height: '220px', marginBottom: 16 }}>
+            {/* Replace with your map component or iframe if needed */}
+            <iframe
+              title="World Map"
+              src="https://www.openstreetmap.org/export/embed.html"
+              style={{ width: '100%', height: '100%', border: 0 }}
+              allowFullScreen
+            />
+          </div>
+
+          {/* Chat UI below the map */}
           {!currentRoom && (
             <div className="h-full flex flex-col">
               {/* Tabs */}

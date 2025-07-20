@@ -61,10 +61,7 @@ function App() {
             <ConnectFeature />
             
             {/* Health Community */}
-            <HealthCommunity 
-              isVisible={collaborativeFeaturesVisible}
-              onClose={() => setCollaborativeFeaturesVisible(false)}
-            />
+            <HealthCommunity />
 
             {/* Collaborative Features */}
             <CollaborativeFeatures 
