@@ -232,10 +232,34 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
         
         if (data.success && currentRoom) {
           // Only update the messages array, preserve all other room data
-          setCurrentRoom(prev => prev ? {
-            ...prev,
-            messages: data.messages || []
-          } : null);
+          setCurrentRoom(prev => {
+            if (!prev) return null;
+            
+            const newMessages = data.messages || [];
+            const currentMessages = prev.messages;
+            
+            // Create a map of existing message IDs for quick lookup
+            const existingMessageIds = new Set(currentMessages.map(msg => msg.id));
+            
+            // Filter out temporary messages and add only new messages
+            const filteredNewMessages = newMessages.filter((msg: PrivateMessage) => 
+              !existingMessageIds.has(msg.id) && !msg.id.startsWith('temp_')
+            );
+            
+            // Remove any temporary messages that are no longer needed
+            const filteredCurrentMessages = currentMessages.filter((msg: PrivateMessage) => 
+              !msg.id.startsWith('temp_') || newMessages.some((newMsg: PrivateMessage) => 
+                newMsg.senderId === msg.senderId && 
+                newMsg.message === msg.message &&
+                Math.abs(new Date(newMsg.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 5000
+              )
+            );
+            
+            return {
+              ...prev,
+              messages: [...filteredCurrentMessages, ...filteredNewMessages]
+            };
+          });
         }
       } catch (error) {
         console.error('Error polling messages:', error);
