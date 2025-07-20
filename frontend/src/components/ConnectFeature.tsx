@@ -1,22 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Users, X, MessageCircle, Send, Phone, PhoneOff } from 'lucide-react';
+import React from 'react';
 
-interface Message {
-  id: string;
-  senderId: string;
-  message: string;
-  timestamp: string;
-}
-
-interface ConnectionState {
-  isConnected: boolean;
-  connectionId?: string;
-  partnerId?: string;
-  isWaiting: boolean;
-  messages: Message[];
-}
-
-// Remove all WebSocket code and show a message instead
 export default function ConnectFeature() {
   return (
     <div className="p-4 text-center">
