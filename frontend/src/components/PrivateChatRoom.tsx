@@ -39,6 +39,10 @@ interface PrivateChatRoomProps {
   onClose: () => void;
 }
 
+// Ably configuration
+const ABLY_API_KEY = 'eXpD5g.u8GGJg:mOfIOlkmY10FTYDcZkcnvmJrmVQDRWKwq2i7kVVfyNY';
+const ABLY_CHANNEL_PREFIX = 'private-chat-';
+
 const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose }) => {
   const [activeTab, setActiveTab] = useState<'create' | 'join' | 'chat'>('create');
   const [inviteCode, setInviteCode] = useState('');
@@ -52,18 +56,7 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const isComponentMountedRef = useRef(true);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      isComponentMountedRef.current = false;
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, []);
+  const ablyChannelRef = useRef<any>(null);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -75,29 +68,40 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
       setIsCreating(true);
       setConnectionError(null);
       
-      const response = await fetch('https://healthpulse-api.healthsathi.workers.dev/api/private-rooms', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          userNickname
-        })
-      });
+      // Generate room data
+      const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const inviteCode = generateInviteCode();
+      const now = Date.now();
+      const expiresAt = now + (24 * 60 * 60 * 1000); // 24 hours
 
-      const data = await response.json();
+      const room: ChatRoom = {
+        id: roomId,
+        inviteCode,
+        creatorId: userId,
+        creatorName: userNickname,
+        messages: [
+          {
+            id: 'welcome',
+            senderId: 'system',
+            senderName: 'System',
+            message: `Welcome to your private chat room! Share the invite code "${inviteCode}" with someone to start chatting.`,
+            messageType: 'text',
+            timestamp: new Date().toISOString()
+          }
+        ],
+        createdAt: now,
+        isActive: true,
+        expiresAt
+      };
+
+      setCurrentRoom(room);
+      setActiveTab('chat');
+      setInviteCode(room.inviteCode);
+      setConnectionStatus('connected');
       
-      if (data.success) {
-        setCurrentRoom(data.room);
-        setActiveTab('chat');
-        setInviteCode(data.room.inviteCode);
-        setConnectionStatus('connected');
-        startPolling(data.room.id);
-      } else {
-        setConnectionError(data.message || 'Failed to create room');
-        setConnectionStatus('error');
-      }
+      // Connect to Ably channel
+      connectToAblyChannel(roomId);
+      
     } catch (error) {
       console.error('Error creating room:', error);
       setConnectionError('Failed to create room - please try again');
@@ -117,29 +121,39 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
       setIsJoining(true);
       setConnectionError(null);
       
-      const response = await fetch('https://healthpulse-api.healthsathi.workers.dev/api/private-rooms/join', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          inviteCode: inviteCode.trim().toUpperCase(),
-          userId,
-          userNickname
-        })
-      });
-
-      const data = await response.json();
+      // For now, we'll create a room with the invite code as the room ID
+      // In a real implementation, you'd validate the invite code with your backend
+      const roomId = `room_${inviteCode.trim().toUpperCase()}`;
       
-      if (data.success) {
-        setCurrentRoom(data.room);
-        setActiveTab('chat');
-        setConnectionStatus('connected');
-        startPolling(data.room.id);
-      } else {
-        setConnectionError(data.message || 'Failed to join room');
-        setConnectionStatus('error');
-      }
+      const room: ChatRoom = {
+        id: roomId,
+        inviteCode: inviteCode.trim().toUpperCase(),
+        creatorId: 'unknown',
+        creatorName: 'Unknown',
+        participantId: userId,
+        participantName: userNickname,
+        messages: [
+          {
+            id: 'join',
+            senderId: 'system',
+            senderName: 'System',
+            message: `${userNickname} joined the chat`,
+            messageType: 'text',
+            timestamp: new Date().toISOString()
+          }
+        ],
+        createdAt: Date.now(),
+        isActive: true,
+        expiresAt: Date.now() + (24 * 60 * 60 * 1000)
+      };
+
+      setCurrentRoom(room);
+      setActiveTab('chat');
+      setConnectionStatus('connected');
+      
+      // Connect to Ably channel
+      connectToAblyChannel(roomId);
+      
     } catch (error) {
       console.error('Error joining room:', error);
       setConnectionError('Failed to join room - please check the invite code');
@@ -149,128 +163,72 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
     }
   };
 
-  const sendMessage = async () => {
-    if (!messageInput.trim() || !currentRoom) return;
-
-    const messageText = messageInput.trim();
-    const tempMessageId = `temp_${Date.now()}`;
-    
-    // Optimistically add message to UI immediately
-    const optimisticMessage: PrivateMessage = {
-      id: tempMessageId,
-      senderId: userId,
-      senderName: userNickname,
-      message: messageText,
-      messageType: 'text',
-      timestamp: new Date().toISOString()
-    };
-
-    // Add optimistic message to UI
-    setCurrentRoom(prev => prev ? {
-      ...prev,
-      messages: [...prev.messages, optimisticMessage]
-    } : null);
-    
-    // Clear input immediately for better UX
-    setMessageInput('');
-
+  const connectToAblyChannel = (roomId: string) => {
     try {
-      const response = await fetch(`https://healthpulse-api.healthsathi.workers.dev/api/private-rooms/${currentRoom.id}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          userNickname,
-          message: messageText,
-          messageType: 'text'
-        })
-      });
+      // Load Ably dynamically
+      const script = document.createElement('script');
+      script.src = 'https://cdn.ably.io/ably-1.2.5.min.js';
+      script.onload = () => {
+        // @ts-ignore
+        const Ably = window.Ably;
+        const ably = new Ably.Realtime(ABLY_API_KEY);
+        
+        const channel = ably.channels.get(`${ABLY_CHANNEL_PREFIX}${roomId}`);
+        
+        // Subscribe to messages
+        channel.subscribe('message', (message: any) => {
+          const newMessage: PrivateMessage = {
+            id: message.id,
+            senderId: message.data.senderId,
+            senderName: message.data.senderName,
+            message: message.data.message,
+            messageType: message.data.messageType || 'text',
+            timestamp: message.timestamp
+          };
 
-      const data = await response.json();
-      
-      if (data.success) {
-        // Message was sent successfully, the polling will pick up the real message
-        // and replace our optimistic message
-      } else {
-        // Remove optimistic message if send failed
-        setCurrentRoom(prev => prev ? {
-          ...prev,
-          messages: prev.messages.filter(msg => msg.id !== tempMessageId)
-        } : null);
-        setConnectionError('Failed to send message');
-        // Restore the message to input
-        setMessageInput(messageText);
-      }
+          setCurrentRoom(prev => prev ? {
+            ...prev,
+            messages: [...prev.messages, newMessage]
+          } : null);
+        });
+
+        ablyChannelRef.current = channel;
+        setConnectionStatus('connected');
+      };
+      document.head.appendChild(script);
     } catch (error) {
-      console.error('Error sending message:', error);
-      // Remove optimistic message if send failed
-      setCurrentRoom(prev => prev ? {
-        ...prev,
-        messages: prev.messages.filter(msg => msg.id !== tempMessageId)
-      } : null);
-      setConnectionError('Failed to send message');
-      // Restore the message to input
-      setMessageInput(messageText);
+      console.error('Error connecting to Ably:', error);
+      setConnectionStatus('error');
+      setConnectionError('Failed to connect to chat service');
     }
   };
 
-  const startPolling = (roomId: string) => {
-    // Clear existing interval
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
+  const sendMessage = async () => {
+    if (!messageInput.trim() || !currentRoom || !ablyChannelRef.current) return;
+
+    const messageText = messageInput.trim();
+    
+    try {
+      // Publish message to Ably channel
+      await ablyChannelRef.current.publish('message', {
+        senderId: userId,
+        senderName: userNickname,
+        message: messageText,
+        messageType: 'text',
+        timestamp: new Date().toISOString()
+      });
+
+      setMessageInput('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setConnectionError('Failed to send message');
     }
-
-    // Poll for new messages every 2 seconds
-    pollingIntervalRef.current = setInterval(async () => {
-      if (!isComponentMountedRef.current) return;
-
-      try {
-        const response = await fetch(`https://healthpulse-api.healthsathi.workers.dev/api/private-rooms/${roomId}/messages`);
-        const data = await response.json();
-        
-        if (data.success && currentRoom) {
-          // Only update the messages array, preserve all other room data
-          setCurrentRoom(prev => {
-            if (!prev) return null;
-            
-            const newMessages = data.messages || [];
-            const currentMessages = prev.messages;
-            
-            // Create a map of existing message IDs for quick lookup
-            const existingMessageIds = new Set(currentMessages.map(msg => msg.id));
-            
-            // Filter out temporary messages and add only new messages
-            const filteredNewMessages = newMessages.filter((msg: PrivateMessage) => 
-              !existingMessageIds.has(msg.id) && !msg.id.startsWith('temp_')
-            );
-            
-            // Remove any temporary messages that are no longer needed
-            const filteredCurrentMessages = currentMessages.filter((msg: PrivateMessage) => 
-              !msg.id.startsWith('temp_') || newMessages.some((newMsg: PrivateMessage) => 
-                newMsg.senderId === msg.senderId && 
-                newMsg.message === msg.message &&
-                Math.abs(new Date(newMsg.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 5000
-              )
-            );
-            
-            return {
-              ...prev,
-              messages: [...filteredCurrentMessages, ...filteredNewMessages]
-            };
-          });
-        }
-      } catch (error) {
-        console.error('Error polling messages:', error);
-      }
-    }, 2000);
   };
 
   const leaveRoom = () => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
+    if (ablyChannelRef.current) {
+      ablyChannelRef.current.unsubscribe();
+      ablyChannelRef.current = null;
     }
     setCurrentRoom(null);
     setActiveTab('create');
@@ -331,6 +289,15 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
     return `${hours}h ${minutes}m`;
   };
 
+  const generateInviteCode = (): string => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
   if (!isVisible) return null;
 
   return (
@@ -366,7 +333,6 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
 
         {/* Content */}
         <div className="flex-1 overflow-hidden">
-          {/* Chat UI - Map has been completely removed */}
           {!currentRoom && (
             <div className="h-full flex flex-col">
               {/* Tabs */}

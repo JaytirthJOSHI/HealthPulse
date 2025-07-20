@@ -73,7 +73,7 @@ const HealthMap: React.FC = () => {
         <meta name="keywords" content="health map, disease tracking, outbreak map, real-time health data, community health monitoring, HealthSathi's Pulse" />
       </HelmetWrapper>
       
-      <div className="h-full w-full">
+      <div className="h-full w-full relative z-0">
         <MapContainer
           center={[20, 0]} // World view
           zoom={2}

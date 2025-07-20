@@ -59,11 +59,28 @@ code {
 .leaflet-container {
   height: 100%;
   width: 100%;
+  z-index: 0 !important;
 }
 
 .leaflet-popup-content {
   margin: 8px 12px;
   font-family: 'Inter', sans-serif;
+}
+
+/* Ensure Leaflet elements don't override modals */
+.leaflet-popup,
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  z-index: 1000 !important;
+}
+
+.leaflet-control-container {
+  z-index: 1000 !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 1000 !important;
 }
 
 /* Custom scrollbar */
