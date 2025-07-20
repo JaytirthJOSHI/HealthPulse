@@ -24,7 +24,6 @@ const HelmetWrapper = Helmet as any;
 function App() {
   const [connectFeatureEnabled, setConnectFeatureEnabled] = useState(false);
   const [collaborativeFeaturesVisible, setCollaborativeFeaturesVisible] = useState(false);
-  const [privateChatRoomVisible, setPrivateChatRoomVisible] = useState(false);
 
   return (
     <ThemeProvider>
@@ -45,7 +44,6 @@ function App() {
               connectFeatureEnabled={connectFeatureEnabled}
               onToggleConnectFeature={setConnectFeatureEnabled}
               onOpenCollaborativeFeatures={() => setCollaborativeFeaturesVisible(true)}
-              onOpenPrivateChatRoom={() => setPrivateChatRoomVisible(true)}
             />
             <main id="main-content" className="container mx-auto px-4 py-6 flex-grow" aria-label="Main Content">
               <Routes>
@@ -70,10 +68,7 @@ function App() {
             />
 
             {/* Private Chat Room */}
-            <PrivateChatRoom 
-              isVisible={privateChatRoomVisible}
-              onClose={() => setPrivateChatRoomVisible(false)}
-            />
+            <PrivateChatRoom />
 
             {/* Accessibility Menu */}
             <AccessibilityMenu />

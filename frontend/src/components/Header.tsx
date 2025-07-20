@@ -66,16 +66,18 @@ const Header: React.FC<HeaderProps> = ({
           {/* Right side controls */}
           <div className="flex items-center space-x-2">
             {/* Private Chat Room Button */}
-            {onOpenPrivateChatRoom && (
-              <button
-                onClick={onOpenPrivateChatRoom}
-                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg transition-all hover:scale-105 shadow-lg font-medium"
-                title="Open Private Chat Room"
-              >
-                <MessageCircle className="w-5 h-5" />
-                <span className="hidden sm:inline">Private Chat</span>
-              </button>
-            )}
+            <button
+              onClick={() => {
+                // The PrivateChatRoom component is now self-contained and will handle its own modal
+                // We can trigger it by dispatching a custom event
+                window.dispatchEvent(new CustomEvent('openPrivateChat'));
+              }}
+              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg transition-all hover:scale-105 shadow-lg font-medium"
+              title="Open Private Chat Room"
+            >
+              <MessageCircle className="w-5 h-5" />
+              <span className="hidden sm:inline">Private Chat</span>
+            </button>
 
             {/* Health Community Button */}
             {isFeatureEnabled('COMMUNITY_ENABLED') && onOpenCollaborativeFeatures && (

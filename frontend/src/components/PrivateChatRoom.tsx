@@ -1,500 +1,527 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  MessageCircle, 
-  Plus, 
-  Send, 
-  X, 
-  Copy,
-  Check,
-  Share2,
-  UserPlus,
-  LogOut,
-  AlertCircle
-} from 'lucide-react';
+import { MessageCircle, Send, X, Users, UserPlus } from 'lucide-react';
+import { useToast } from '../contexts/ToastContext';
+import Ably from 'ably';
 
 interface PrivateMessage {
   id: string;
   senderId: string;
   senderName: string;
   message: string;
-  messageType: 'text' | 'image' | 'file';
+  messageType: 'text' | 'system';
   timestamp: string;
 }
 
-interface ChatRoom {
+interface PrivateRoom {
   id: string;
-  inviteCode: string;
-  creatorId: string;
-  creatorName: string;
-  participantId?: string;
-  participantName?: string;
+  name: string;
   messages: PrivateMessage[];
-  createdAt: number;
-  isActive: boolean;
-  expiresAt: number;
+  participants: string[];
+  createdAt: string;
+  expiresAt: string;
 }
 
-interface PrivateChatRoomProps {
-  isVisible: boolean;
-  onClose: () => void;
+interface OnlineUser {
+  id: string;
+  nickname: string;
+  lastSeen: number;
 }
 
-const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'create' | 'join' | 'chat'>('create');
-  const [inviteCode, setInviteCode] = useState('');
+const PrivateChatRoom: React.FC = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [currentRoom, setCurrentRoom] = useState<PrivateRoom | null>(null);
   const [messageInput, setMessageInput] = useState('');
-  const [userId] = useState(`user_${Math.random().toString(36).substr(2, 9)}`);
-  const [userNickname] = useState(`User_${Math.random().toString(36).substr(2, 5)}`);
-  const [currentRoom, setCurrentRoom] = useState<ChatRoom | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
-  const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [copiedCode, setCopiedCode] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [isJoining, setIsJoining] = useState(false);
+  const [userNickname, setUserNickname] = useState('');
+  const [userId, setUserId] = useState('');
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connected' | 'waiting'>('disconnected');
+  const [showConnectionOptions, setShowConnectionOptions] = useState(false);
+  const [showNameInput, setShowNameInput] = useState(true);
+  const [availableUsers, setAvailableUsers] = useState<OnlineUser[]>([]);
+  const [ably, setAbly] = useState<Ably.Realtime | null>(null);
+  const [channel, setChannel] = useState<Ably.RealtimeChannel | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { showToast } = useToast();
+
+  // Initialize Ably
+  useEffect(() => {
+    const ablyInstance = new Ably.Realtime({
+      key: 'eXpD5g.u8GGJg:mOfIOlkmY10FTYDcZkcnvmJrmVQDRWKwq2i7kVVfyNY',
+      clientId: userId
+    });
+
+    setAbly(ablyInstance);
+
+    return () => {
+      ablyInstance.close();
+    };
+  }, [userId]);
+
+  // Generate random user ID on component mount
+  useEffect(() => {
+    const randomId = `user_${Math.random().toString(36).substr(2, 9)}`;
+    setUserId(randomId);
+  }, []);
+
+  // Listen for custom event to open the chat
+  useEffect(() => {
+    const handleOpenChat = () => {
+      setIsOpen(true);
+    };
+
+    window.addEventListener('openPrivateChat', handleOpenChat);
+    return () => {
+      window.removeEventListener('openPrivateChat', handleOpenChat);
+    };
+  }, []);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentRoom?.messages]);
 
-  const createRoom = async () => {
+  // Debug messages
+  useEffect(() => {
+    if (currentRoom) {
+      console.log('Current room messages:', currentRoom.messages);
+    }
+  }, [currentRoom]);
+
+  // Subscribe to presence and user updates
+  useEffect(() => {
+    if (!ably || !userNickname.trim()) return;
+
+    const presenceChannel = ably.channels.get('user-presence');
+    
+    // Subscribe to presence updates
+    presenceChannel.presence.subscribe('enter', (member) => {
+      console.log('User joined:', member);
+      updateAvailableUsers();
+    });
+
+    presenceChannel.presence.subscribe('leave', (member) => {
+      console.log('User left:', member);
+      updateAvailableUsers();
+    });
+
+    // Enter presence
+    presenceChannel.presence.enter({ nickname: userNickname });
+
+    // Update available users every 5 seconds
+    const interval = setInterval(updateAvailableUsers, 5000);
+
+    return () => {
+      presenceChannel.presence.leave();
+      clearInterval(interval);
+    };
+  }, [ably, userNickname]);
+
+  const updateAvailableUsers = async () => {
+    if (!ably) return;
+
     try {
-      setIsCreating(true);
-      setConnectionError(null);
-      setConnectionStatus('connecting');
+      const presenceChannel = ably.channels.get('user-presence');
+      const members = await presenceChannel.presence.get();
       
-      // Generate room data
-      const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const inviteCode = generateInviteCode();
-      const now = Date.now();
-      const expiresAt = now + (24 * 60 * 60 * 1000); // 24 hours
-
-      const room: ChatRoom = {
-        id: roomId,
-        inviteCode,
-        creatorId: userId,
-        creatorName: userNickname,
-        messages: [
-          {
-            id: 'welcome',
-            senderId: 'system',
-            senderName: 'System',
-            message: `Welcome to your private chat room! Share the invite code "${inviteCode}" with someone to start chatting.`,
-            messageType: 'text',
-            timestamp: new Date().toISOString()
-          }
-        ],
-        createdAt: now,
-        isActive: true,
-        expiresAt
-      };
-
-      setCurrentRoom(room);
-      setActiveTab('chat');
-      setInviteCode(room.inviteCode);
-      setConnectionStatus('connected');
-      setConnectionError(null);
+      const users = members
+        .filter(member => member.clientId !== userId)
+        .map(member => ({
+          id: member.clientId,
+          nickname: member.data.nickname,
+          lastSeen: Date.now()
+        }));
       
+      setAvailableUsers(users);
     } catch (error) {
-      console.error('Error creating room:', error);
-      setConnectionError('Failed to create room - please try again');
-      setConnectionStatus('error');
-    } finally {
-      setIsCreating(false);
+      console.error('Error updating available users:', error);
     }
   };
 
-  const joinRoom = async () => {
-    if (!inviteCode.trim()) {
-      setConnectionError('Please enter an invite code');
-      return;
+  const handleNameSubmit = () => {
+    if (userNickname.trim()) {
+      setShowNameInput(false);
+      showToast('success', `Welcome, ${userNickname}!`);
     }
+  };
 
-    try {
-      setIsJoining(true);
-      setConnectionError(null);
-      setConnectionStatus('connecting');
-      
-      // For now, we'll create a room with the invite code as the room ID
-      // In a real implementation, you'd validate the invite code with your backend
-      const roomId = `room_${inviteCode.trim().toUpperCase()}`;
-      
-      const room: ChatRoom = {
-        id: roomId,
-        inviteCode: inviteCode.trim().toUpperCase(),
-        creatorId: 'unknown',
-        creatorName: 'Unknown',
-        participantId: userId,
-        participantName: userNickname,
-        messages: [
-          {
-            id: 'join',
-            senderId: 'system',
-            senderName: 'System',
-            message: `${userNickname} joined the chat`,
-            messageType: 'text',
-            timestamp: new Date().toISOString()
-          }
-        ],
-        createdAt: Date.now(),
-        isActive: true,
-        expiresAt: Date.now() + (24 * 60 * 60 * 1000)
+  const joinRandomRoom = async () => {
+    if (!ably) return;
+
+    const roomId = 'global-chat';
+    const roomName = 'Global Chat Room';
+    
+    const newRoom: PrivateRoom = {
+      id: roomId,
+      name: roomName,
+      messages: [
+        {
+          id: 'welcome',
+          senderId: 'system',
+          senderName: 'System',
+          message: `Welcome to the global chat room! You are ${userNickname}.`,
+          messageType: 'system',
+          timestamp: new Date().toISOString()
+        }
+      ],
+      participants: [userId],
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    };
+
+    setCurrentRoom(newRoom);
+    setConnectionStatus('connected');
+
+    // Subscribe to room channel
+    const roomChannel = ably.channels.get(`room:${roomId}`);
+    setChannel(roomChannel);
+
+    // Subscribe to messages
+    roomChannel.subscribe('message', (message) => {
+      const newMessage: PrivateMessage = {
+        id: message.id || `msg_${Date.now()}`,
+        senderId: message.clientId || 'unknown',
+        senderName: message.data.senderName,
+        message: message.data.message,
+        messageType: 'text',
+        timestamp: message.timestamp ? message.timestamp.toString() : new Date().toISOString()
       };
 
-      setCurrentRoom(room);
-      setActiveTab('chat');
-      setConnectionStatus('connected');
-      setConnectionError(null);
-      
-    } catch (error) {
-      console.error('Error joining room:', error);
-      setConnectionError('Failed to join room - please check the invite code');
-      setConnectionStatus('error');
-    } finally {
-      setIsJoining(false);
-    }
+      setCurrentRoom(prev => prev ? {
+        ...prev,
+        messages: [...prev.messages, newMessage]
+      } : null);
+    });
+
+    showToast('success', 'Joined global chat room!');
+  };
+
+  const connectWithUser = async (targetUserId: string, targetNickname: string) => {
+    if (!ably) return;
+
+    // Create a consistent channel name for both users
+    const sortedIds = [userId, targetUserId].sort();
+    const roomId = `private_${sortedIds[0]}_${sortedIds[1]}`;
+    const roomName = 'Private Chat';
+    
+    const newRoom: PrivateRoom = {
+      id: roomId,
+      name: roomName,
+      messages: [
+        {
+          id: 'welcome',
+          senderId: 'system',
+          senderName: 'System',
+          message: `You are now connected with ${targetNickname}! Start chatting.`,
+          messageType: 'system',
+          timestamp: new Date().toISOString()
+        }
+      ],
+      participants: [userId, targetUserId],
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    };
+
+    setCurrentRoom(newRoom);
+    setConnectionStatus('connected');
+    setShowConnectionOptions(false);
+
+    // Subscribe to room channel
+    const roomChannel = ably.channels.get(`room:${roomId}`);
+    setChannel(roomChannel);
+
+    // Subscribe to messages
+    roomChannel.subscribe('message', (message) => {
+      console.log('Received message:', message);
+      const newMessage: PrivateMessage = {
+        id: message.id || `msg_${Date.now()}`,
+        senderId: message.clientId || 'unknown',
+        senderName: message.data.senderName,
+        message: message.data.message,
+        messageType: 'text',
+        timestamp: message.timestamp ? message.timestamp.toString() : new Date().toISOString()
+      };
+
+      setCurrentRoom(prev => prev ? {
+        ...prev,
+        messages: [...prev.messages, newMessage]
+      } : null);
+    });
+
+    showToast('success', `Connected with ${targetNickname}!`);
+  };
+
+  const startPrivateConnection = () => {
+    setShowConnectionOptions(true);
   };
 
   const sendMessage = async () => {
-    console.log('sendMessage called', { messageInput, currentRoom });
+    console.log('sendMessage called', { messageInput, currentRoom, channel });
     
-    if (!messageInput.trim() || !currentRoom) {
-      console.log('sendMessage blocked:', { hasMessage: !!messageInput.trim(), hasRoom: !!currentRoom });
+    if (!messageInput.trim() || !currentRoom || !channel) {
+      console.log('sendMessage blocked:', { 
+        hasMessage: !!messageInput.trim(), 
+        hasRoom: !!currentRoom, 
+        hasChannel: !!channel 
+      });
       return;
     }
 
     const messageText = messageInput.trim();
     console.log('Sending message:', messageText);
     
-    // Add message locally
-    const newMessage: PrivateMessage = {
-      id: `local_${Date.now()}`,
-      senderId: userId,
-      senderName: userNickname,
-      message: messageText,
-      messageType: 'text',
-      timestamp: new Date().toISOString()
-    };
+    try {
+      // Publish message to Ably channel
+      await channel.publish('message', {
+        senderName: userNickname,
+        message: messageText
+      });
 
-    console.log('New message object:', newMessage);
-
-    setCurrentRoom(prev => {
-      console.log('Previous room state:', prev);
-      const updatedRoom = prev ? {
-        ...prev,
-        messages: [...prev.messages, newMessage]
-      } : null;
-      console.log('Updated room state:', updatedRoom);
-      return updatedRoom;
-    });
-
-    setMessageInput('');
-    console.log('Message sent successfully');
+      // Clear input
+      setMessageInput('');
+      console.log('Message sent successfully via Ably');
+    } catch (error) {
+      console.error('Error sending message:', error);
+      showToast('error', 'Failed to send message');
+    }
   };
 
   const leaveRoom = () => {
+    if (channel) {
+      channel.unsubscribe();
+      setChannel(null);
+    }
+    
     setCurrentRoom(null);
-    setActiveTab('create');
     setConnectionStatus('disconnected');
-    setConnectionError(null);
-    setInviteCode('');
-  };
-
-  const copyInviteCode = async () => {
-    if (currentRoom?.inviteCode) {
-      try {
-        await navigator.clipboard.writeText(currentRoom.inviteCode);
-        setCopiedCode(true);
-        setTimeout(() => setCopiedCode(false), 2000);
-      } catch (error) {
-        console.error('Failed to copy invite code:', error);
-      }
-    }
-  };
-
-  const shareInviteCode = async () => {
-    if (currentRoom?.inviteCode) {
-      try {
-        if (navigator.share) {
-          await navigator.share({
-            title: 'Join my private chat room',
-            text: `Join my private chat room using invite code: ${currentRoom.inviteCode}`,
-            url: window.location.href
-          });
-        } else {
-          await copyInviteCode();
-        }
-      } catch (error) {
-        console.error('Failed to share invite code:', error);
-      }
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+    setMessageInput('');
+    setShowConnectionOptions(false);
+    showToast('info', 'Left the chat room');
   };
 
   const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date(timestamp).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
   };
 
-  const getTimeUntilExpiry = () => {
+  const formatTimeRemaining = () => {
     if (!currentRoom) return '';
-    const now = Date.now();
-    const timeLeft = currentRoom.expiresAt - now;
-    if (timeLeft <= 0) return 'Expired';
-    
-    const hours = Math.floor(timeLeft / (1000 * 60 * 60));
-    const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+    const now = new Date();
+    const expiresAt = new Date(currentRoom.expiresAt);
+    const diff = expiresAt.getTime() - now.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     return `${hours}h ${minutes}m`;
   };
 
-  const generateInviteCode = (): string => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    for (let i = 0; i < 6; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  };
-
-  if (!isVisible) return null;
-
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl h-[80vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-t-lg">
-          <div className="flex items-center space-x-3">
-            <MessageCircle size={24} />
-            <h2 className="text-xl font-bold">Private Chat Room</h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-white hover:text-gray-200 transition-colors"
-          >
-            <X size={24} />
-          </button>
-        </div>
+    <>
+      <button
+        onClick={() => setIsOpen(true)}
+        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+      >
+        <MessageCircle size={20} />
+        <span>Private Chat</span>
+      </button>
 
-        {/* Connection Status */}
-        {connectionStatus !== 'connected' && (
-          <div className="p-4 bg-yellow-50 border-b border-yellow-200">
-            <div className="flex items-center space-x-2">
-              <AlertCircle size={16} className="text-yellow-600" />
-              <span className="text-yellow-800">
-                {connectionStatus === 'connecting' && 'Connecting...'}
-                {connectionStatus === 'error' && `Connection error: ${connectionError}`}
-                {connectionStatus === 'disconnected' && 'Disconnected'}
-              </span>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl h-[600px] flex flex-col">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-4 rounded-t-lg flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Private Chat Room</h2>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="text-white hover:text-gray-200 transition-colors"
+              >
+                <X size={24} />
+              </button>
             </div>
-          </div>
-        )}
 
-        {/* Content */}
-        <div className="flex-1 overflow-hidden">
-          {!currentRoom && (
-            <div className="h-full flex flex-col">
-              {/* Tabs */}
-              <div className="flex border-b border-gray-200">
-                <button
-                  onClick={() => setActiveTab('create')}
-                  className={`flex-1 px-6 py-4 font-medium transition-colors ${
-                    activeTab === 'create'
-                      ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50'
-                      : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                >
-                  <Plus size={20} className="inline mr-2" />
-                  Create Room
-                </button>
-                <button
-                  onClick={() => setActiveTab('join')}
-                  className={`flex-1 px-6 py-4 font-medium transition-colors ${
-                    activeTab === 'join'
-                      ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50'
-                      : 'text-gray-600 hover:text-gray-800'
-                  }`}
-                >
-                  <UserPlus size={20} className="inline mr-2" />
-                  Join Room
-                </button>
-              </div>
-
-              {/* Create Room Tab */}
-              {activeTab === 'create' && (
-                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-                  <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mb-6">
-                    <MessageCircle size={48} className="text-purple-600" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    Create Private Chat Room
-                  </h3>
-                  <p className="text-gray-600 mb-8 max-w-md">
-                    Create a private chat room and share the invite code with someone to start chatting one-on-one.
-                  </p>
-                  <button
-                    onClick={createRoom}
-                    disabled={isCreating}
-                    className="bg-purple-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isCreating ? 'Creating...' : 'Create Room'}
-                  </button>
-                </div>
-              )}
-
-              {/* Join Room Tab */}
-              {activeTab === 'join' && (
-                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-                  <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mb-6">
-                    <UserPlus size={48} className="text-purple-600" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    Join Private Chat Room
-                  </h3>
-                  <p className="text-gray-600 mb-6 max-w-md">
-                    Enter the invite code to join an existing private chat room.
-                  </p>
-                  <div className="w-full max-w-sm">
-                    <input
-                      type="text"
-                      value={inviteCode}
-                      onChange={(e) => setInviteCode(e.target.value)}
-                      placeholder="Enter invite code"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    />
-                    <button
-                      onClick={joinRoom}
-                      disabled={isJoining || !inviteCode.trim()}
-                      className="w-full mt-4 bg-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {isJoining ? 'Joining...' : 'Join Room'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Chat Room */}
-          {currentRoom && (
-            <div className="h-full flex flex-col">
-              {/* Room Header */}
-              <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                    <MessageCircle size={20} className="text-purple-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Private Chat</h3>
-                    <p className="text-sm text-gray-500">
-                      {currentRoom.participantId ? 'Connected' : 'Waiting for participant'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={copyInviteCode}
-                    className="flex items-center space-x-1 px-3 py-1 text-sm text-gray-600 hover:text-gray-800 transition-colors"
-                  >
-                    {copiedCode ? <Check size={14} /> : <Copy size={14} />}
-                    <span>{currentRoom.inviteCode}</span>
-                  </button>
-                  <button
-                    onClick={shareInviteCode}
-                    className="p-2 text-gray-600 hover:text-gray-800 transition-colors"
-                  >
-                    <Share2 size={16} />
-                  </button>
-                  <button
-                    onClick={leaveRoom}
-                    className="p-2 text-gray-600 hover:text-red-600 transition-colors"
-                  >
-                    <LogOut size={16} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {currentRoom.messages.length === 0 ? (
-                  <div className="text-center text-gray-500 py-8">
-                    <MessageCircle size={48} className="mx-auto mb-4 text-gray-300" />
-                    <p>No messages yet. Start the conversation!</p>
-                  </div>
-                ) : (
-                  currentRoom.messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex ${message.senderId === userId ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                          message.senderId === userId
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-gray-100 text-gray-900'
-                        }`}
+            {/* Chat Content */}
+            <div className="flex-1 flex flex-col">
+              {showNameInput ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center max-w-md mx-auto">
+                    <MessageCircle size={64} className="mx-auto mb-4 text-purple-600" />
+                    <h3 className="text-xl font-semibold mb-2">Choose Your Name</h3>
+                    <p className="text-gray-600 mb-6">Enter a name to start chatting</p>
+                    
+                    <div className="space-y-4">
+                      <input
+                        type="text"
+                        value={userNickname}
+                        onChange={(e) => setUserNickname(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleNameSubmit()}
+                        placeholder="Enter your name..."
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        autoFocus
+                      />
+                      <button
+                        onClick={handleNameSubmit}
+                        disabled={!userNickname.trim()}
+                        className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors"
                       >
-                        <div className="flex items-center space-x-2 mb-1">
-                          <span className="text-xs opacity-75">{message.senderName}</span>
-                          <span className="text-xs opacity-75">
-                            {formatTime(message.timestamp)}
-                          </span>
-                        </div>
-                        <p className="text-sm">{message.message}</p>
+                        Continue
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : !currentRoom ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <MessageCircle size={64} className="mx-auto mb-4 text-purple-600" />
+                    <h3 className="text-xl font-semibold mb-2">Connect with Someone</h3>
+                    <p className="text-gray-600 mb-6">Start a private conversation with another user</p>
+                    
+                    {!showConnectionOptions ? (
+                      <div className="space-y-3">
+                        <button
+                          onClick={startPrivateConnection}
+                          className="w-full bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                        >
+                          <UserPlus size={20} />
+                          <span>Send Message to Someone</span>
+                        </button>
+                        
+                        <div className="text-sm text-gray-500">or</div>
+                        
+                        <button
+                          onClick={joinRandomRoom}
+                          className="w-full bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg transition-colors"
+                        >
+                          Join Global Chat Room
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-full max-w-md mx-auto">
+                        {/* Available Users */}
+                        <h4 className="font-semibold mb-3 text-gray-700">Available Users</h4>
+                        {availableUsers.length === 0 ? (
+                          <p className="text-gray-500 text-center py-4">No other users online</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {availableUsers.map(user => (
+                              <div key={user.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                                <span className="text-sm text-gray-700">{user.nickname}</span>
+                                <button
+                                  onClick={() => connectWithUser(user.id, user.nickname)}
+                                  className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700"
+                                >
+                                  Connect
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        <button
+                          onClick={() => {
+                            setShowConnectionOptions(false);
+                          }}
+                          className="mt-4 text-sm text-gray-500 hover:text-gray-700"
+                        >
+                          Back
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Room Info */}
+                  <div className="p-4 bg-gray-50 border-b">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className={`w-3 h-3 rounded-full ${
+                          connectionStatus === 'connected' ? 'bg-green-500' : 
+                          connectionStatus === 'waiting' ? 'bg-yellow-500' : 'bg-red-500'
+                        }`} />
+                        <span className="font-medium">{currentRoom.name}</span>
+                        <span className="text-sm text-gray-500">({connectionStatus})</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Users size={16} className="text-gray-500" />
+                        <span className="text-sm text-gray-500">{currentRoom.participants.length} participants</span>
                       </div>
                     </div>
-                  ))
-                )}
-                <div ref={messagesEndRef} />
-              </div>
+                  </div>
 
-              {/* Message Input */}
-              <div className="p-4 border-t border-gray-200">
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Type your message..."
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                  <button
-                    onClick={() => {
-                      console.log('Send button clicked');
-                      sendMessage();
-                    }}
-                    disabled={!messageInput.trim()}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                  >
-                    <Send size={16} />
-                  </button>
-                </div>
-                <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-                  <span>{getTimeUntilExpiry()}</span>
-                  <span>Room expires in 24 hours</span>
-                </div>
-              </div>
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    {currentRoom.messages.length === 0 ? (
+                      <div className="text-center text-gray-500 py-8">
+                        <MessageCircle size={48} className="mx-auto mb-4 text-gray-300" />
+                        <p>No messages yet. Start the conversation!</p>
+                      </div>
+                    ) : (
+                      currentRoom.messages.map((message, index) => {
+                        return (
+                          <div
+                            key={message.id}
+                            className={`flex ${message.senderId === userId ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div
+                              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                                message.senderId === userId
+                                  ? 'bg-purple-600 text-white'
+                                  : message.senderId === 'system'
+                                  ? 'bg-gray-200 text-gray-700'
+                                  : 'bg-gray-100 text-gray-900'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-2 mb-1">
+                                <span className="text-xs opacity-75">{message.senderName}</span>
+                                <span className="text-xs opacity-75">
+                                  {formatTime(message.timestamp)}
+                                </span>
+                              </div>
+                              <p className="text-sm">{message.message}</p>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Input */}
+                  <div className="p-4 border-t">
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={messageInput}
+                        onChange={(e) => setMessageInput(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                        placeholder="Type your message..."
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                      <button
+                        onClick={sendMessage}
+                        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+                      >
+                        <Send size={20} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="p-4 bg-gray-50 border-t flex justify-between items-center text-sm text-gray-600">
+                    <span>{formatTimeRemaining()}</span>
+                    <button
+                      onClick={leaveRoom}
+                      className="text-red-600 hover:text-red-700 transition-colors"
+                    >
+                      Leave Room
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
-          )}
-        </div>
-
-        {/* Privacy Notice */}
-        <div className="p-4 bg-gray-50 border-t border-gray-200 text-xs text-gray-600">
-          <div className="flex items-center space-x-2">
-            <AlertCircle size={14} />
-            <span>
-              Privacy & Anonymity: Reports are anonymous and only location data at PIN code level is collected, not exact addresses.
-            </span>
           </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 };
 
