@@ -60,232 +60,181 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
   const [healthChallenges, setHealthChallenges] = useState<HealthChallenge[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<HealthGroup | null>(null);
   const [messageInput, setMessageInput] = useState('');
-  const [websocket, setWebsocket] = useState<WebSocket | null>(null);
-  const [userId, setUserId] = useState<string>('');
-  const [userNickname, setUserNickname] = useState<string>('');
+  const [userId] = useState(`user_${Math.random().toString(36).substr(2, 9)}`);
+  const [userNickname] = useState(`HealthUser_${Math.random().toString(36).substr(2, 5)}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isComponentMountedRef = useRef(true);
-
-  const handleWebSocketMessage = useCallback((data: any) => {
-    try {
-      switch (data.type) {
-        case 'collaborative_joined':
-          console.log('Joined collaborative features');
-          break;
-        case 'health_groups_loaded':
-          setHealthGroups(data.groups || []);
-          break;
-        case 'health_challenges_loaded':
-          setHealthChallenges(data.challenges || []);
-          break;
-        case 'group_joined':
-          setSelectedGroup(data.group);
-          // setLastMessageCheck(new Date().toISOString()); // Removed as per edit hint
-          break;
-        case 'group_message_sent':
-          if (selectedGroup && data.groupId === selectedGroup.id) {
-            setSelectedGroup(prev => prev ? {
-              ...prev,
-              messages: [...prev.messages, data.message]
-            } : null);
-          }
-          break;
-        case 'challenge_joined':
-          // setSelectedChallenge(data.challenge); // Removed as per edit hint
-          break;
-        case 'challenge_progress_updated':
-          setHealthChallenges(prev => prev.map(challenge => 
-            challenge.id === data.challengeId 
-              ? { ...challenge, progress: { ...challenge.progress, [data.userId]: data.progress } }
-              : challenge
-          ));
-          break;
-        case 'emergency_alert_sent':
-          // Handle emergency alert
-          console.log('Emergency alert sent:', data);
-          break;
-        case 'error':
-          console.error('WebSocket server error:', data.message);
-          // setConnectionError(data.message || 'Server error occurred'); // Removed as per edit hint
-          break;
-      }
-    } catch (error) {
-      console.error('Error handling WebSocket message:', error);
-      // setConnectionError('Failed to handle server message'); // Removed as per edit hint
-    }
-  }, [selectedGroup]);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       isComponentMountedRef.current = false;
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (!isVisible) return;
-
-    const connectWebSocket = () => {
-      try {
-        // setIsConnecting(true); // Removed as per edit hint
-        // setConnectionError(null); // Removed as per edit hint
-        
-        // Close existing connection if any
-        if (websocket) {
-          websocket.close();
-        }
-
-        const ws = new WebSocket('wss://healthpulse-api.healthsathi.workers.dev/ws');
-        setWebsocket(ws);
-
-        ws.onopen = () => {
-          if (!isComponentMountedRef.current) return;
-          console.log('WebSocket connected for collaborative features');
-          // setIsConnecting(false); // Removed as per edit hint
-          // setConnectionError(null); // Removed as per edit hint
-          const newUserId = `user_${Math.random().toString(36).substr(2, 9)}`;
-          const newNickname = `HealthUser_${Math.random().toString(36).substr(2, 5)}`;
-          setUserId(newUserId);
-          setUserNickname(newNickname);
-
-          // Join collaborative features
-          ws.send(JSON.stringify({
-            type: 'join_collaborative',
-            userId: newUserId,
-            userNickname: newNickname
-          }));
-        };
-
-        ws.onmessage = (event) => {
-          if (!isComponentMountedRef.current) return;
-          try {
-            const data = JSON.parse(event.data);
-            handleWebSocketMessage(data);
-          } catch (error) {
-            console.error('Error parsing WebSocket message:', error);
-            // setConnectionError('Failed to process server message'); // Removed as per edit hint
-          }
-        };
-
-        ws.onerror = (error) => {
-          if (!isComponentMountedRef.current) return;
-          console.error('WebSocket error:', error);
-          // setConnectionError('Connection error occurred'); // Removed as per edit hint
-          // setIsConnecting(false); // Removed as per edit hint
-        };
-
-        ws.onclose = (event) => {
-          if (!isComponentMountedRef.current) return;
-          console.log('WebSocket disconnected');
-          // setIsConnecting(false); // Removed as per edit hint
-          
-          // Attempt to reconnect if not a normal closure and component is visible
-          if (event.code !== 1000 && isComponentMountedRef.current && isVisible) {
-            // setConnectionError('Connection lost, reconnecting...'); // Removed as per edit hint
-            reconnectTimeoutRef.current = setTimeout(() => {
-              if (isComponentMountedRef.current && isVisible) {
-                connectWebSocket();
-              }
-            }, 3000);
-          }
-        };
-
-      } catch (error) {
-        console.error('Failed to create WebSocket connection:', error);
-        // setConnectionError('Failed to establish connection'); // Removed as per edit hint
-        // setIsConnecting(false); // Removed as per edit hint
-        
-        // Retry after delay
-        reconnectTimeoutRef.current = setTimeout(() => {
-          if (isComponentMountedRef.current && isVisible) {
-            connectWebSocket();
-          }
-        }, 5000);
-      }
-    };
-
-    connectWebSocket();
-
-    return () => {
-      if (websocket) {
-        websocket.close();
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-    };
-  }, [isVisible, handleWebSocketMessage, websocket]);
-
-  // Start polling for messages when a group is selected
-  useEffect(() => {
-    if (selectedGroup) {
-      const interval = setInterval(() => {
-        pollGroupMessages(selectedGroup.id);
-      }, 5000); // Poll every 5 seconds
-
-      return () => clearInterval(interval);
-    }
-  }, [selectedGroup]);
-
-  const sendEmergencyAlert = (symptoms: string[], severity: 'low' | 'medium' | 'high' | 'critical', description: string) => {
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send(JSON.stringify({
-        type: 'emergency_alert',
-        userId,
-        location: 'Your Location',
-        symptoms,
-        severity,
-        description
-      }));
-    }
-  };
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [selectedGroup?.messages]);
 
-  const pollGroupMessages = async (groupId: string) => {
+  // Load health groups and challenges when component becomes visible
+  useEffect(() => {
+    if (!isVisible) return;
+
+    const loadData = async () => {
+      try {
+        // Load health groups
+        const groupsResponse = await fetch('https://healthpulse-api.healthsathi.workers.dev/api/collaborative/groups');
+        const groupsData = await groupsResponse.json();
+        if (groupsData.success) {
+          setHealthGroups(groupsData.groups || []);
+        }
+
+        // Load health challenges
+        const challengesResponse = await fetch('https://healthpulse-api.healthsathi.workers.dev/api/collaborative/challenges');
+        const challengesData = await challengesResponse.json();
+        if (challengesData.success) {
+          setHealthChallenges(challengesData.challenges || []);
+        }
+      } catch (error) {
+        console.error('Error loading collaborative data:', error);
+      }
+    };
+
+    loadData();
+  }, [isVisible]);
+
+  const joinGroup = async (groupId: string) => {
     try {
-      const response = await fetch(`https://healthpulse-api.healthsathi.workers.dev/api/collaborative/groups/${groupId}/messages`);
+      const response = await fetch('https://healthpulse-api.healthsathi.workers.dev/api/collaborative/groups', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          groupId,
+          userId,
+          userNickname
+        })
+      });
+
       const data = await response.json();
       if (data.success) {
-        setSelectedGroup(prev => prev ? {
-          ...prev,
-          messages: data.messages
-        } : null);
+        setSelectedGroup(data.group);
+        startPollingGroupMessages(groupId);
       }
     } catch (error) {
-      console.error('Error polling group messages:', error);
+      console.error('Error joining group:', error);
     }
   };
 
-  const sendGroupMessage = () => {
-    if (messageInput.trim() && selectedGroup && websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send(JSON.stringify({
-        type: 'send_group_message',
-        groupId: selectedGroup.id,
-        userId,
-        userNickname,
-        message: messageInput.trim(),
-        messageType: 'text'
-      }));
-      setMessageInput('');
+  const sendGroupMessage = async () => {
+    if (!messageInput.trim() || !selectedGroup) return;
+
+    try {
+      const response = await fetch(`https://healthpulse-api.healthsathi.workers.dev/api/collaborative/groups/${selectedGroup.id}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          userNickname,
+          message: messageInput.trim(),
+          messageType: 'text'
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setMessageInput('');
+        // Message will be picked up by polling
+      }
+    } catch (error) {
+      console.error('Error sending group message:', error);
     }
   };
 
-  const joinChallenge = (challengeId: string) => {
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send(JSON.stringify({
-        type: 'join_challenge',
-        challengeId,
-        userId,
-        userNickname
-      }));
+  const startPollingGroupMessages = (groupId: string) => {
+    // Clear existing interval
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    // Poll for new messages every 3 seconds
+    pollingIntervalRef.current = setInterval(async () => {
+      if (!isComponentMountedRef.current) return;
+
+      try {
+        const response = await fetch(`https://healthpulse-api.healthsathi.workers.dev/api/collaborative/groups/${groupId}/messages`);
+        const data = await response.json();
+        
+        if (data.success && selectedGroup) {
+          setSelectedGroup(prev => prev ? {
+            ...prev,
+            messages: data.messages
+          } : null);
+        }
+      } catch (error) {
+        console.error('Error polling group messages:', error);
+      }
+    }, 3000);
+  };
+
+  const joinChallenge = async (challengeId: string) => {
+    try {
+      const response = await fetch('https://healthpulse-api.healthsathi.workers.dev/api/collaborative/challenges', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          challengeId,
+          userId,
+          userNickname
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        // Update challenges list
+        setHealthChallenges(prev => prev.map(challenge => 
+          challenge.id === challengeId 
+            ? { ...challenge, participants: [...challenge.participants, userId] }
+            : challenge
+        ));
+      }
+    } catch (error) {
+      console.error('Error joining challenge:', error);
+    }
+  };
+
+  const sendEmergencyAlert = async (symptoms: string[], severity: 'low' | 'medium' | 'high' | 'critical', description: string) => {
+    try {
+      const response = await fetch('https://healthpulse-api.healthsathi.workers.dev/api/collaborative/emergency', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          userNickname,
+          symptoms,
+          severity,
+          description
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        console.log('Emergency alert sent successfully');
+      }
+    } catch (error) {
+      console.error('Error sending emergency alert:', error);
     }
   };
 
@@ -362,7 +311,7 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
                   {healthGroups.map(group => (
                     <div
                       key={group.id}
-                      onClick={() => setSelectedGroup(group)}
+                      onClick={() => joinGroup(group.id)}
                       className={`p-4 border rounded-lg mb-3 cursor-pointer transition-colors ${
                         selectedGroup?.id === group.id
                           ? 'border-blue-500 bg-blue-50'
