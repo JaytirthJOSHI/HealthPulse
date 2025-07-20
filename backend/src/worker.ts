@@ -382,40 +382,37 @@ export default {
       const path = url.pathname;
       
       console.log('Request path:', path);
-      console.log('Upgrade header:', request.headers.get('Upgrade'));
-      console.log('Connection header:', request.headers.get('Connection'));
+      console.log('Request method:', request.method);
+      console.log('All headers:', Object.fromEntries(request.headers.entries()));
 
       // Handle WebSocket upgrade
       const upgradeHeader = request.headers.get('Upgrade');
       const connectionHeader = request.headers.get('Connection');
-      const secWebSocketVersion = request.headers.get('Sec-WebSocket-Version');
       const secWebSocketKey = request.headers.get('Sec-WebSocket-Key');
+      const secWebSocketVersion = request.headers.get('Sec-WebSocket-Version');
       
-      console.log('Request method:', request.method);
-      console.log('Request path:', path);
       console.log('Upgrade header:', upgradeHeader);
       console.log('Connection header:', connectionHeader);
-      console.log('Sec-WebSocket-Version:', secWebSocketVersion);
       console.log('Sec-WebSocket-Key:', secWebSocketKey);
+      console.log('Sec-WebSocket-Version:', secWebSocketVersion);
       
-      // Check for WebSocket upgrade
-      const isWebSocketUpgrade = upgradeHeader && 
-                                 upgradeHeader.toLowerCase() === 'websocket' && 
-                                 connectionHeader && 
-                                 connectionHeader.toLowerCase().includes('upgrade');
+      // Check for WebSocket upgrade - try multiple detection methods
+      const isWebSocketUpgrade = (
+        // Method 1: Standard WebSocket upgrade
+        (upgradeHeader && upgradeHeader.toLowerCase() === 'websocket' && 
+         connectionHeader && connectionHeader.toLowerCase().includes('upgrade')) ||
+        // Method 2: Check for WebSocket-specific headers even if Upgrade header is missing
+        (secWebSocketKey && secWebSocketVersion && 
+         (path === '/ws' || path === '/chat' || path === '/'))
+      );
       
       console.log('Is WebSocket upgrade:', isWebSocketUpgrade);
+      console.log('Path:', path);
       
       if (isWebSocketUpgrade) {
         console.log('WebSocket upgrade requested for path:', path);
-        // Only handle WebSocket upgrades for specific endpoints
-        if (path === '/' || path === '/chat' || path === '/ws') {
-          console.log('Handling WebSocket upgrade for path:', path);
-          return await handleWebSocketUpgrade(request, env, ctx);
-        } else {
-          console.log('WebSocket endpoint not found for path:', path);
-          return new Response('WebSocket endpoint not found', { status: 404 });
-        }
+        // Handle WebSocket upgrades for any path
+        return await handleWebSocketUpgrade(request, env, ctx);
       }
 
       // Handle CORS preflight
@@ -435,6 +432,32 @@ export default {
             service: 'HealthPulse Backend (Cloudflare Workers)',
             environment: 'production',
               phoneAISystem: '+1 7703620543'
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders,
+            },
+          }
+        );
+      }
+
+      // Debug endpoint to test WebSocket upgrade detection
+      if (path === '/debug' && request.method === 'GET') {
+        const upgradeHeader = request.headers.get('Upgrade');
+        const connectionHeader = request.headers.get('Connection');
+        const isWebSocketUpgrade = upgradeHeader && 
+                                   upgradeHeader.toLowerCase() === 'websocket' && 
+                                   connectionHeader && 
+                                   connectionHeader.toLowerCase().includes('upgrade');
+        
+        return new Response(
+          JSON.stringify({
+            upgradeHeader,
+            connectionHeader,
+            isWebSocketUpgrade,
+            allHeaders: Object.fromEntries(request.headers.entries())
           }),
           {
             status: 200,
@@ -619,20 +642,29 @@ export default {
 // WebSocket handling functions
 async function handleWebSocketUpgrade(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   try {
-    const upgradeHeader = request.headers.get('Upgrade');
-    if (upgradeHeader !== 'websocket') {
+    console.log('Starting WebSocket upgrade...');
+    
+    // Check for WebSocket-specific headers instead of Upgrade header
+    const secWebSocketKey = request.headers.get('Sec-WebSocket-Key');
+    const secWebSocketVersion = request.headers.get('Sec-WebSocket-Version');
+    
+    if (!secWebSocketKey || !secWebSocketVersion) {
+      console.log('Missing WebSocket headers:', { secWebSocketKey, secWebSocketVersion });
       return new Response('Expected websocket', { status: 400 });
     }
 
+    console.log('Creating WebSocket pair...');
     const webSocketPair = new WebSocketPair();
     const [client, server] = Object.values(webSocketPair) as [WebSocket, WebSocket];
 
+    console.log('Accepting WebSocket connection...');
     // Accept the WebSocket connection
     server.accept();
 
     // Store the WebSocket connection with a unique ID
     const socketId = generateSocketId();
     connectedWebSockets.set(socketId, server);
+    console.log('WebSocket stored with ID:', socketId);
 
     // Handle WebSocket messages
     server.addEventListener('message', (event: any) => {

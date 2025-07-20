@@ -47,7 +47,6 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
   const [userId] = useState(`user_${Math.random().toString(36).substr(2, 9)}`);
   const [userNickname] = useState(`User_${Math.random().toString(36).substr(2, 5)}`);
   const [currentRoom, setCurrentRoom] = useState<ChatRoom | null>(null);
-  const [websocket, setWebsocket] = useState<WebSocket | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
@@ -55,188 +54,168 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
   const [isJoining, setIsJoining] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isComponentMountedRef = useRef(true);
-
-  const handleWebSocketMessage = useCallback((data: any) => {
-    try {
-      switch (data.type) {
-        case 'private_room_created':
-          setCurrentRoom(data.room);
-          setActiveTab('chat');
-          setInviteCode(data.room.inviteCode);
-          break;
-        case 'private_room_joined':
-          setCurrentRoom(data.room);
-          setActiveTab('chat');
-          break;
-        case 'private_message_sent':
-          if (currentRoom && data.roomId === currentRoom.id) {
-            setCurrentRoom(prev => prev ? {
-              ...prev,
-              messages: [...prev.messages, data.message]
-            } : null);
-          }
-          break;
-        case 'private_room_left':
-          setCurrentRoom(null);
-          setActiveTab('create');
-          break;
-        case 'error':
-          console.error('WebSocket server error:', data.message);
-          setConnectionError(data.message || 'Server error occurred');
-          break;
-      }
-    } catch (error) {
-      console.error('Error handling WebSocket message:', error);
-      setConnectionError('Failed to handle server message');
-    }
-  }, [currentRoom]);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       isComponentMountedRef.current = false;
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
     };
   }, []);
-
-  // Connect to WebSocket when component becomes visible
-  useEffect(() => {
-    if (!isVisible) return;
-
-    const connectWebSocket = () => {
-      try {
-        setConnectionStatus('connecting');
-        setConnectionError(null);
-        
-        // Close existing connection if any
-        if (websocket) {
-          websocket.close();
-        }
-
-        const ws = new WebSocket('wss://healthpulse-api.healthsathi.workers.dev/ws');
-        setWebsocket(ws);
-
-        ws.onopen = () => {
-          if (!isComponentMountedRef.current) return;
-          console.log('WebSocket connected for private chat');
-          setConnectionStatus('connected');
-          setConnectionError(null);
-          
-          // Send initial connection message
-          ws.send(JSON.stringify({
-            type: 'connect',
-            userId,
-            userNickname
-          }));
-        };
-
-        ws.onmessage = (event) => {
-          if (!isComponentMountedRef.current) return;
-          try {
-            const data = JSON.parse(event.data);
-            console.log('WebSocket message received:', data);
-            handleWebSocketMessage(data);
-          } catch (error) {
-            console.error('Error parsing WebSocket message:', error);
-            setConnectionError('Failed to process server message');
-          }
-        };
-
-        ws.onerror = (error) => {
-          if (!isComponentMountedRef.current) return;
-          console.error('WebSocket error:', error);
-          setConnectionStatus('error');
-          setConnectionError('Connection error occurred - please check your internet connection');
-        };
-
-        ws.onclose = (event) => {
-          if (!isComponentMountedRef.current) return;
-          console.log('WebSocket disconnected with code:', event.code, 'reason:', event.reason);
-          setConnectionStatus('disconnected');
-          
-          // Attempt to reconnect if not a normal closure and component is visible
-          if (event.code !== 1000 && isComponentMountedRef.current && isVisible) {
-            setConnectionError(`Connection lost (code: ${event.code}), reconnecting...`);
-            setTimeout(() => {
-              if (isComponentMountedRef.current && isVisible) {
-                connectWebSocket();
-              }
-            }, 3000);
-          }
-        };
-
-      } catch (error) {
-        console.error('Failed to create WebSocket connection:', error);
-        setConnectionStatus('error');
-        setConnectionError('Failed to establish connection');
-      }
-    };
-
-    connectWebSocket();
-
-    return () => {
-      if (websocket) {
-        websocket.close();
-      }
-    };
-  }, [isVisible, handleWebSocketMessage, websocket, userId, userNickname]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentRoom?.messages]);
 
-  const createRoom = () => {
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
+  const createRoom = async () => {
+    try {
       setIsCreating(true);
-      websocket.send(JSON.stringify({
-        type: 'create_private_room',
-        userId,
-        userNickname
-      }));
+      setConnectionError(null);
+      
+      const response = await fetch('https://healthpulse-api.healthsathi.workers.dev/api/private-rooms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          userNickname
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setCurrentRoom(data.room);
+        setActiveTab('chat');
+        setInviteCode(data.room.inviteCode);
+        setConnectionStatus('connected');
+        startPolling(data.room.id);
+      } else {
+        setConnectionError(data.message || 'Failed to create room');
+        setConnectionStatus('error');
+      }
+    } catch (error) {
+      console.error('Error creating room:', error);
+      setConnectionError('Failed to create room - please try again');
+      setConnectionStatus('error');
+    } finally {
+      setIsCreating(false);
     }
   };
 
-  const joinRoom = () => {
+  const joinRoom = async () => {
     if (!inviteCode.trim()) {
       setConnectionError('Please enter an invite code');
       return;
     }
 
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
+    try {
       setIsJoining(true);
-      websocket.send(JSON.stringify({
-        type: 'join_private_room',
-        inviteCode: inviteCode.trim().toUpperCase(),
-        userId,
-        userNickname
-      }));
+      setConnectionError(null);
+      
+      const response = await fetch('https://healthpulse-api.healthsathi.workers.dev/api/private-rooms/join', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inviteCode: inviteCode.trim().toUpperCase(),
+          userId,
+          userNickname
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setCurrentRoom(data.room);
+        setActiveTab('chat');
+        setConnectionStatus('connected');
+        startPolling(data.room.id);
+      } else {
+        setConnectionError(data.message || 'Failed to join room');
+        setConnectionStatus('error');
+      }
+    } catch (error) {
+      console.error('Error joining room:', error);
+      setConnectionError('Failed to join room - please check the invite code');
+      setConnectionStatus('error');
+    } finally {
+      setIsJoining(false);
     }
   };
 
-  const sendMessage = () => {
-    if (messageInput.trim() && currentRoom && websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send(JSON.stringify({
-        type: 'send_private_message',
-        roomId: currentRoom.id,
-        userId,
-        userNickname,
-        message: messageInput.trim(),
-        messageType: 'text'
-      }));
-      setMessageInput('');
+  const sendMessage = async () => {
+    if (!messageInput.trim() || !currentRoom) return;
+
+    try {
+      const response = await fetch(`https://healthpulse-api.healthsathi.workers.dev/api/private-rooms/${currentRoom.id}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          userNickname,
+          message: messageInput.trim(),
+          messageType: 'text'
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setMessageInput('');
+        // Message will be picked up by polling
+      } else {
+        setConnectionError('Failed to send message');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setConnectionError('Failed to send message');
     }
+  };
+
+  const startPolling = (roomId: string) => {
+    // Clear existing interval
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    // Poll for new messages every 2 seconds
+    pollingIntervalRef.current = setInterval(async () => {
+      if (!isComponentMountedRef.current) return;
+
+      try {
+        const response = await fetch(`https://healthpulse-api.healthsathi.workers.dev/api/private-rooms/${roomId}/messages`);
+        const data = await response.json();
+        
+        if (data.success && currentRoom) {
+          setCurrentRoom(prev => prev ? {
+            ...prev,
+            messages: data.messages
+          } : null);
+        }
+      } catch (error) {
+        console.error('Error polling messages:', error);
+      }
+    }, 2000);
   };
 
   const leaveRoom = () => {
-    if (currentRoom && websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send(JSON.stringify({
-        type: 'leave_private_room',
-        roomId: currentRoom.id,
-        userId
-      }));
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
     }
     setCurrentRoom(null);
     setActiveTab('create');
+    setConnectionStatus('disconnected');
+    setConnectionError(null);
   };
 
   const copyInviteCode = async () => {
@@ -352,52 +331,55 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
                 </button>
               </div>
 
-               {/* Create Room */}
-               {activeTab === 'create' && (
-                <div className="flex-1 flex items-center justify-center p-8">
-                  <div className="text-center max-w-md">
-                    <MessageCircle size={64} className="mx-auto mb-6 text-purple-500" />
-                    <h3 className="text-2xl font-bold mb-4">Create Private Chat Room</h3>
-                    <p className="text-gray-600 mb-8">
-                      Create a private chat room and share the invite code with someone to start chatting one-on-one.
-                    </p>
-                    <button
-                      onClick={createRoom}
-                      disabled={isCreating || connectionStatus !== 'connected'}
-                      className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-8 py-3 rounded-lg font-medium transition-colors flex items-center justify-center mx-auto"
-                    >
-                      {isCreating ? 'Creating...' : 'Create Room'}
-                    </button>
+              {/* Create Room Tab */}
+              {activeTab === 'create' && (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                  <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mb-6">
+                    <MessageCircle size={48} className="text-purple-600" />
                   </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Create Private Chat Room
+                  </h3>
+                  <p className="text-gray-600 mb-8 max-w-md">
+                    Create a private chat room and share the invite code with someone to start chatting one-on-one.
+                  </p>
+                  <button
+                    onClick={createRoom}
+                    disabled={isCreating}
+                    className="bg-purple-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isCreating ? 'Creating...' : 'Create Room'}
+                  </button>
                 </div>
-               )}
+              )}
 
-              {/* Join Room */}
+              {/* Join Room Tab */}
               {activeTab === 'join' && (
-                <div className="flex-1 flex items-center justify-center p-8">
-                  <div className="text-center max-w-md w-full">
-                    <UserPlus size={64} className="mx-auto mb-6 text-purple-500" />
-                    <h3 className="text-2xl font-bold mb-4">Join Private Chat Room</h3>
-                    <p className="text-gray-600 mb-6">
-                      Enter the invite code to join a private chat room.
-                    </p>
-                    <div className="space-y-4">
-                      <input
-                        type="text"
-                        value={inviteCode}
-                        onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                        placeholder="Enter invite code (e.g., ABC123)"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-lg font-mono"
-                        maxLength={6}
-                      />
-                      <button
-                        onClick={joinRoom}
-                        disabled={!inviteCode.trim() || isJoining || connectionStatus !== 'connected'}
-                        className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-8 py-3 rounded-lg font-medium transition-colors"
-                      >
-                        {isJoining ? 'Joining...' : 'Join Room'}
-                      </button>
-                    </div>
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                  <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mb-6">
+                    <UserPlus size={48} className="text-purple-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Join Private Chat Room
+                  </h3>
+                  <p className="text-gray-600 mb-6 max-w-md">
+                    Enter the invite code to join an existing private chat room.
+                  </p>
+                  <div className="w-full max-w-sm">
+                    <input
+                      type="text"
+                      value={inviteCode}
+                      onChange={(e) => setInviteCode(e.target.value)}
+                      placeholder="Enter invite code"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                    <button
+                      onClick={joinRoom}
+                      disabled={isJoining || !inviteCode.trim()}
+                      className="w-full mt-4 bg-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isJoining ? 'Joining...' : 'Join Room'}
+                    </button>
                   </div>
                 </div>
               )}
@@ -408,71 +390,72 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
           {currentRoom && (
             <div className="h-full flex flex-col">
               {/* Room Header */}
-              <div className="p-4 border-b border-gray-200 bg-gray-50">
-                <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                    <MessageCircle size={20} className="text-purple-600" />
+                  </div>
                   <div>
-                    <h3 className="font-semibold text-lg">Private Chat Room</h3>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600">
-                      <span>Code: {currentRoom.inviteCode}</span>
-                      <span>•</span>
-                      <span>{getTimeUntilExpiry()}</span>
-                    </div>
+                    <h3 className="font-semibold text-gray-900">Private Chat</h3>
+                    <p className="text-sm text-gray-500">
+                      {currentRoom.participantId ? 'Connected' : 'Waiting for participant'}
+                    </p>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={copyInviteCode}
-                      className="p-2 text-gray-600 hover:text-gray-800 transition-colors"
-                      title="Copy invite code"
-                    >
-                      {copiedCode ? <Check size={16} className="text-green-600" /> : <Copy size={16} />}
-                    </button>
-                    <button
-                      onClick={shareInviteCode}
-                      className="p-2 text-gray-600 hover:text-gray-800 transition-colors"
-                      title="Share invite code"
-                    >
-                      <Share2 size={16} />
-                    </button>
-                    <button
-                      onClick={leaveRoom}
-                      className="p-2 text-red-600 hover:text-red-800 transition-colors"
-                      title="Leave room"
-                    >
-                      <LogOut size={16} />
-                    </button>
-                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={copyInviteCode}
+                    className="flex items-center space-x-1 px-3 py-1 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                  >
+                    {copiedCode ? <Check size={14} /> : <Copy size={14} />}
+                    <span>{currentRoom.inviteCode}</span>
+                  </button>
+                  <button
+                    onClick={shareInviteCode}
+                    className="p-2 text-gray-600 hover:text-gray-800 transition-colors"
+                  >
+                    <Share2 size={16} />
+                  </button>
+                  <button
+                    onClick={leaveRoom}
+                    className="p-2 text-gray-600 hover:text-red-600 transition-colors"
+                  >
+                    <LogOut size={16} />
+                  </button>
                 </div>
               </div>
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {currentRoom.messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.senderId === userId ? 'justify-end' : 'justify-start'}`}
-                  >
+                {currentRoom.messages.length === 0 ? (
+                  <div className="text-center text-gray-500 py-8">
+                    <MessageCircle size={48} className="mx-auto mb-4 text-gray-300" />
+                    <p>No messages yet. Start the conversation!</p>
+                  </div>
+                ) : (
+                  currentRoom.messages.map((message) => (
                     <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                        message.senderId === 'system'
-                          ? 'bg-gray-100 text-gray-600 text-center mx-auto'
-                          : message.senderId === userId
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-gray-200 text-gray-800'
-                      }`}
+                      key={message.id}
+                      className={`flex ${message.senderId === userId ? 'justify-end' : 'justify-start'}`}
                     >
-                      {message.senderId !== 'system' && (
-                        <div className="text-xs opacity-75 mb-1">
-                          {message.senderName}
+                      <div
+                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                          message.senderId === userId
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-gray-100 text-gray-900'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2 mb-1">
+                          <span className="text-xs opacity-75">{message.senderName}</span>
+                          <span className="text-xs opacity-75">
+                            {formatTime(message.timestamp)}
+                          </span>
                         </div>
-                      )}
-                      <div className="text-sm">{message.message}</div>
-                      <div className="text-xs opacity-75 mt-1 flex items-center justify-end">
-                        <Clock size={12} className="mr-1" />
-                        {formatTime(message.timestamp)}
+                        <p className="text-sm">{message.message}</p>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
@@ -484,26 +467,34 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder="Type a message..."
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    disabled={!currentRoom.participantId && currentRoom.creatorId !== userId}
+                    placeholder="Type your message..."
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   />
                   <button
                     onClick={sendMessage}
-                    disabled={!messageInput.trim() || (!currentRoom.participantId && currentRoom.creatorId !== userId)}
-                    className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
+                    disabled={!messageInput.trim()}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <Send size={16} />
                   </button>
                 </div>
-                {!currentRoom.participantId && currentRoom.creatorId !== userId && (
-                  <p className="text-sm text-gray-500 mt-2 text-center">
-                    Waiting for someone to join with invite code: {currentRoom.inviteCode}
-                  </p>
-                )}
+                <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                  <span>{getTimeUntilExpiry()}</span>
+                  <span>Room expires in 24 hours</span>
+                </div>
               </div>
             </div>
           )}
+        </div>
+
+        {/* Privacy Notice */}
+        <div className="p-4 bg-gray-50 border-t border-gray-200 text-xs text-gray-600">
+          <div className="flex items-center space-x-2">
+            <AlertCircle size={14} />
+            <span>
+              Privacy & Anonymity: Reports are anonymous and only location data at PIN code level is collected, not exact addresses.
+            </span>
+          </div>
         </div>
       </div>
     </div>
