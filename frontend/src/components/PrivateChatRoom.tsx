@@ -62,6 +62,7 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
     try {
       setIsCreating(true);
       setConnectionError(null);
+      setConnectionStatus('connecting');
       
       // Generate room data
       const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -93,6 +94,7 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
       setActiveTab('chat');
       setInviteCode(room.inviteCode);
       setConnectionStatus('connected');
+      setConnectionError(null);
       
     } catch (error) {
       console.error('Error creating room:', error);
@@ -112,6 +114,7 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
     try {
       setIsJoining(true);
       setConnectionError(null);
+      setConnectionStatus('connecting');
       
       // For now, we'll create a room with the invite code as the room ID
       // In a real implementation, you'd validate the invite code with your backend
@@ -142,6 +145,7 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
       setCurrentRoom(room);
       setActiveTab('chat');
       setConnectionStatus('connected');
+      setConnectionError(null);
       
     } catch (error) {
       console.error('Error joining room:', error);
@@ -153,9 +157,15 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
   };
 
   const sendMessage = async () => {
-    if (!messageInput.trim() || !currentRoom) return;
+    console.log('sendMessage called', { messageInput, currentRoom });
+    
+    if (!messageInput.trim() || !currentRoom) {
+      console.log('sendMessage blocked:', { hasMessage: !!messageInput.trim(), hasRoom: !!currentRoom });
+      return;
+    }
 
     const messageText = messageInput.trim();
+    console.log('Sending message:', messageText);
     
     // Add message locally
     const newMessage: PrivateMessage = {
@@ -167,12 +177,20 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
       timestamp: new Date().toISOString()
     };
 
-    setCurrentRoom(prev => prev ? {
-      ...prev,
-      messages: [...prev.messages, newMessage]
-    } : null);
+    console.log('New message object:', newMessage);
+
+    setCurrentRoom(prev => {
+      console.log('Previous room state:', prev);
+      const updatedRoom = prev ? {
+        ...prev,
+        messages: [...prev.messages, newMessage]
+      } : null;
+      console.log('Updated room state:', updatedRoom);
+      return updatedRoom;
+    });
 
     setMessageInput('');
+    console.log('Message sent successfully');
   };
 
   const leaveRoom = () => {
@@ -447,9 +465,12 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   />
                   <button
-                    onClick={sendMessage}
+                    onClick={() => {
+                      console.log('Send button clicked');
+                      sendMessage();
+                    }}
                     disabled={!messageInput.trim()}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                   >
                     <Send size={16} />
                   </button>
