@@ -224,7 +224,7 @@ function initializeHealthGroups(env: Env) {
     {
       id: 'mental-wellness',
       name: 'Mental Wellness Circle',
-      description: 'Support for mental health and emotional well-being',
+      description: 'Support for mental health and emotional well-being', 
       category: 'wellness' as const,
       members: [],
       messages: [
