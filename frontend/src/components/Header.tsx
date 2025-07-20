@@ -27,7 +27,6 @@ const Header: React.FC<HeaderProps> = ({
   const navItems = [
     { path: '/', label: 'Health Map' },
     { path: '/report', label: 'Report Symptoms' },
-    { path: '/diseases', label: 'Disease Info' },
     { path: '/phone-ai', label: 'AI Diagnosis' },
     { path: '/analytics', label: 'Analytics' },
     { path: '/about', label: 'About' }

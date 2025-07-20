@@ -19,14 +19,11 @@ interface SupabaseContextType {
   isConnected: boolean;
   reports: SymptomReport[];
   healthTips: HealthTip[];
-  diseases: Disease[];
-  regions: Region[];
   loading: boolean;
   error: string | null;
   addReport: (report: Omit<SymptomReport, 'id' | 'createdAt'>) => Promise<void>;
   getReportsByLocation: (country: string, pinCode: string) => Promise<SymptomReport[]>;
   getHealthTip: (symptoms: string[], pinCode?: string) => Promise<HealthTip | null>;
-  getDiseaseRisk: (pinCode: string) => Promise<DiseaseRisk[]>;
   getHealthAggregates: () => Promise<HealthAggregate[]>;
 }
 
@@ -48,8 +45,6 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
   const [isConnected, setIsConnected] = useState(false);
   const [reports, setReports] = useState<SymptomReport[]>([]);
   const [healthTips, setHealthTips] = useState<HealthTip[]>([]);
-  const [diseases, setDiseases] = useState<Disease[]>([]);
-  const [regions, setRegions] = useState<Region[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,16 +77,6 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
         if (!tipsResponse.ok) throw new Error('Failed to fetch health tips');
         const tipsData = await tipsResponse.json();
 
-        // Load diseases from API
-        const diseasesResponse = await fetch(`${API_BASE_URL}/api/diseases`);
-        if (!diseasesResponse.ok) throw new Error('Failed to fetch diseases');
-        const diseasesData = await diseasesResponse.json();
-
-        // Load regions from API
-        const regionsResponse = await fetch(`${API_BASE_URL}/api/regions`);
-        if (!regionsResponse.ok) throw new Error('Failed to fetch regions');
-        const regionsData = await regionsResponse.json();
-
         // Transform reports data to match frontend types
         const transformedReports = (reportsData || []).map((report: any) => ({
           id: report.id,
@@ -109,8 +94,6 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
 
         setReports(transformedReports);
         setHealthTips(tipsData || []);
-        setDiseases(diseasesData || []);
-        setRegions(regionsData || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load data');
         console.error('Error loading data:', err);
@@ -209,23 +192,6 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
     }
   };
 
-  const getDiseaseRisk = async (pinCode: string): Promise<DiseaseRisk[]> => {
-    if (!supabase) throw new Error('Supabase not initialized');
-
-    try {
-      const { data, error } = await supabase
-        .rpc('get_disease_risk_for_location', {
-          location_pin_code: pinCode
-        });
-
-      if (error) throw error;
-      return data || [];
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to get disease risk');
-      return [];
-    }
-  };
-
   const getHealthAggregates = async (): Promise<HealthAggregate[]> => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/health-aggregates`);
@@ -245,14 +211,11 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
     isConnected,
     reports,
     healthTips,
-    diseases,
-    regions,
     loading,
     error,
     addReport,
     getReportsByLocation,
     getHealthTip,
-    getDiseaseRisk,
     getHealthAggregates,
   };
 

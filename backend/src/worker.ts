@@ -485,14 +485,6 @@ export default {
           return await handleGetHealthTips();
       }
 
-      if (path === '/api/diseases' && request.method === 'GET') {
-          return await handleGetDiseases();
-      }
-
-      if (path === '/api/regions' && request.method === 'GET') {
-          return await handleGetRegions();
-        }
-
         // Phone AI Integration endpoints
         if (path === '/api/phone-ai/voice-report' && request.method === 'POST') {
           return await handleVoiceSymptomReport(request);
@@ -2310,75 +2302,7 @@ async function handleGetHealthTips(): Promise<Response> {
   }
 }
 
-async function handleGetDiseases(): Promise<Response> {
-  try {
-    // Mock diseases data
-    const diseases = [
-      { id: 1, name: 'Common Cold', symptoms: ['runny nose', 'sore throat', 'cough'], severity: 'low' },
-      { id: 2, name: 'Influenza', symptoms: ['fever', 'body aches', 'fatigue'], severity: 'medium' },
-      { id: 3, name: 'COVID-19', symptoms: ['fever', 'cough', 'loss of taste'], severity: 'high' },
-      { id: 4, name: 'Dengue', symptoms: ['high fever', 'headache', 'joint pain'], severity: 'high' }
-    ];
-    
-    return new Response(
-      JSON.stringify(diseases),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders,
-        },
-      }
-    );
-  } catch (error) {
-    console.error('Error in handleGetDiseases:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders,
-        },
-      }
-    );
-  }
-}
 
-async function handleGetRegions(): Promise<Response> {
-  try {
-    // Mock regions data
-    const regions = [
-      { id: 1, name: 'North America', countries: ['USA', 'Canada', 'Mexico'] },
-      { id: 2, name: 'South Asia', countries: ['India', 'Pakistan', 'Bangladesh'] },
-      { id: 3, name: 'Europe', countries: ['UK', 'Germany', 'France'] },
-      { id: 4, name: 'Africa', countries: ['Nigeria', 'South Africa', 'Kenya'] }
-    ];
-    
-    return new Response(
-      JSON.stringify(regions),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders,
-        },
-      }
-    );
-  } catch (error) {
-    console.error('Error in handleGetRegions:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders,
-        },
-      }
-    );
-  }
-}
 
 // Collaborative Features Handlers
 async function handleGetHealthGroups(request: Request): Promise<Response> {

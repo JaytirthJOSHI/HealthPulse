@@ -1,25 +1,23 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { ToastProvider } from './contexts/ToastContext';
+import { SupabaseProvider } from './contexts/SupabaseContext';
+import { RealTimeProvider } from './contexts/RealTimeContext';
 import Header from './components/Header';
 import HealthMap from './components/HealthMap';
 import SymptomReport from './components/SymptomReport';
-import DiseaseInfo from './components/DiseaseInfo';
 import About from './components/About';
 import PhoneAI from './components/PhoneAI';
 import PredictiveAnalytics from './components/PredictiveAnalytics';
 import ConnectFeature from './components/ConnectFeature';
 import HealthCommunity from './components/HealthCommunity';
-import PrivateChatRoom from './components/PrivateChatRoom';
 import CollaborativeFeatures from './components/CollaborativeFeatures';
+import PrivateChatRoom from './components/PrivateChatRoom';
 import AccessibilityMenu from './components/AccessibilityMenu';
 import ErrorBoundary from './components/ErrorBoundary';
-import { RealTimeProvider } from './contexts/RealTimeContext';
-import { SupabaseProvider } from './contexts/SupabaseContext';
-import { ThemeProvider } from './contexts/ThemeContext';
-import { ToastProvider } from './contexts/ToastContext';
-import { Heart, Github, Mail, Shield } from 'lucide-react';
-import { isFeatureEnabled } from './config/features';
+import './App.css';
 
 const HelmetWrapper = Helmet as any;
 
@@ -53,7 +51,6 @@ function App() {
               <Routes>
                 <Route path="/" element={<HealthMap />} />
                 <Route path="/report" element={<SymptomReport />} />
-                <Route path="/diseases" element={<DiseaseInfo />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/phone-ai" element={<PhoneAI />} />
                 <Route path="/analytics" element={<PredictiveAnalytics />} />
