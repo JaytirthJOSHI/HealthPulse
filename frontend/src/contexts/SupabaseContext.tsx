@@ -79,7 +79,7 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
               id: report.id,
               nickname: report.nickname,
               country: report.country,
-              pinCode: report.pin_code,
+              pinCode: report.pin_code || '00000', // Default pin code if not provided
               symptoms: report.symptoms,
               illnessType: report.illness_type,
               severity: report.severity,
