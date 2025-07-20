@@ -25,6 +25,10 @@ const HealthMap: React.FC = () => {
           console.log('HealthMap: Filtering out report without lat/lng:', report);
           return false; // Ensure lat/lng exist
         }
+        // Temporarily disable date filtering to debug
+        console.log('HealthMap: Including all reports with lat/lng');
+        return true;
+        
         // For demo data, show all reports regardless of date
         if (report.createdAt && report.createdAt.includes('1969')) {
           console.log('HealthMap: Including demo data report:', report);
