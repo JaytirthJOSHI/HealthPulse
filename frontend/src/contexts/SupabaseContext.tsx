@@ -67,36 +67,51 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        // Load recent reports from API
-        const reportsResponse = await fetch(`${API_BASE_URL}/api/reports`);
-        if (!reportsResponse.ok) throw new Error('Failed to fetch reports');
-        const reportsData = await reportsResponse.json();
+        // Try to load recent reports from API, but don't fail if unavailable
+        try {
+          const reportsResponse = await fetch(`${API_BASE_URL}/api/reports`);
+          if (reportsResponse.ok) {
+            const reportsData = await reportsResponse.json();
+            const transformedReports = (reportsData || []).map((report: any) => ({
+              id: report.id,
+              nickname: report.nickname,
+              country: report.country,
+              pinCode: report.pin_code,
+              symptoms: report.symptoms,
+              illnessType: report.illness_type,
+              severity: report.severity,
+              createdAt: report.created_at,
+              latitude: report.latitude,
+              longitude: report.longitude,
+            }));
+            console.log('Transformed reports:', transformedReports.length, 'reports loaded');
+            setReports(transformedReports);
+          } else {
+            console.warn('Reports API not available, using empty array');
+            setReports([]);
+          }
+        } catch (err) {
+          console.warn('Failed to fetch reports:', err);
+          setReports([]);
+        }
 
-        // Load health tips from API
-        const tipsResponse = await fetch(`${API_BASE_URL}/api/health-tips`);
-        if (!tipsResponse.ok) throw new Error('Failed to fetch health tips');
-        const tipsData = await tipsResponse.json();
-
-        // Transform reports data to match frontend types
-        const transformedReports = (reportsData || []).map((report: any) => ({
-          id: report.id,
-          nickname: report.nickname,
-          country: report.country,
-          pinCode: report.pin_code,
-          symptoms: report.symptoms,
-          illnessType: report.illness_type,
-          severity: report.severity,
-          createdAt: report.created_at,
-          latitude: report.latitude,
-          longitude: report.longitude,
-        }));
-        console.log('Transformed reports:', transformedReports.length, 'reports loaded');
-
-        setReports(transformedReports);
-        setHealthTips(tipsData || []);
+        // Try to load health tips from API, but don't fail if unavailable
+        try {
+          const tipsResponse = await fetch(`${API_BASE_URL}/api/health-tips`);
+          if (tipsResponse.ok) {
+            const tipsData = await tipsResponse.json();
+            setHealthTips(tipsData || []);
+          } else {
+            console.warn('Health tips API not available, using empty array');
+            setHealthTips([]);
+          }
+        } catch (err) {
+          console.warn('Failed to fetch health tips:', err);
+          setHealthTips([]);
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load data');
-        console.error('Error loading data:', err);
+        console.error('Error in loadInitialData:', err);
+        setError('Some data could not be loaded, but the app will continue to work');
       } finally {
         setLoading(false);
       }
