@@ -305,7 +305,7 @@ const PrivateChatRoom: React.FC<PrivateChatRoomProps> = ({ isVisible, onClose })
 
         {/* Content */}
         <div className="flex-1 overflow-hidden">
-          {/* Chat UI */}
+          {/* Chat UI - Map has been completely removed */}
           {!currentRoom && (
             <div className="h-full flex flex-col">
               {/* Tabs */}
