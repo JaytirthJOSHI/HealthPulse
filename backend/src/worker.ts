@@ -527,189 +527,183 @@ async function handleSendPrivateMessageAPI(request: Request): Promise<Response> 
 // Health monitoring API handlers
 async function handleGetReportsAPI(): Promise<Response> {
   try {
-    // Comprehensive example data for reports
-    const reports = [
-      {
-        id: 1,
-        user_id: 'user_123',
-        symptoms: ['fever', 'cough', 'fatigue', 'body aches'],
-        illness_type: 'COVID-19',
-        severity: 'moderate',
-        latitude: 40.7128,
-        longitude: -74.0060,
-        country: 'United States',
-        city: 'New York',
-        created_at: '2025-07-07T10:30:00.000Z'
-      },
-      {
-        id: 2,
-        user_id: 'user_456',
-        symptoms: ['headache', 'nausea', 'sensitivity to light'],
-        illness_type: 'Migraine',
-        severity: 'severe',
-        latitude: 51.5074,
-        longitude: -0.1278,
-        country: 'United Kingdom',
-        city: 'London',
-        created_at: '2025-07-07T09:15:00.000Z'
-      },
-      {
-        id: 3,
-        user_id: 'user_789',
-        symptoms: ['sore throat', 'fever', 'difficulty swallowing'],
-        illness_type: 'Strep throat',
-        severity: 'moderate',
-        latitude: 48.8566,
-        longitude: 2.3522,
-        country: 'France',
-        city: 'Paris',
-        created_at: '2025-07-07T08:45:00.000Z'
-      },
-      {
-        id: 4,
-        user_id: 'user_101',
-        symptoms: ['nausea', 'vomiting', 'diarrhea', 'abdominal pain'],
-        illness_type: 'Gastroenteritis',
-        severity: 'moderate',
-        latitude: 52.5200,
-        longitude: 13.4050,
-        country: 'Germany',
-        city: 'Berlin',
-        created_at: '2025-07-07T07:30:00.000Z'
-      },
-      {
-        id: 5,
-        user_id: 'user_202',
-        symptoms: ['runny nose', 'sneezing', 'itchy eyes', 'congestion'],
-        illness_type: 'Seasonal allergies',
-        severity: 'mild',
-        latitude: 43.6532,
-        longitude: -79.3832,
-        country: 'Canada',
-        city: 'Toronto',
-        created_at: '2025-07-07T06:45:00.000Z'
-      },
-      {
-        id: 6,
-        user_id: 'user_303',
-        symptoms: ['fever', 'cough', 'shortness of breath', 'chest pain'],
-        illness_type: 'Pneumonia',
-        severity: 'severe',
-        latitude: -33.8688,
-        longitude: 151.2093,
-        country: 'Australia',
-        city: 'Sydney',
-        created_at: '2025-07-07T05:20:00.000Z'
-      },
-      {
-        id: 7,
-        user_id: 'user_404',
-        symptoms: ['fever', 'headache', 'muscle pain', 'fatigue'],
-        illness_type: 'Influenza',
-        severity: 'moderate',
-        latitude: 19.0760,
-        longitude: 72.8777,
-        country: 'India',
-        city: 'Mumbai',
-        created_at: '2025-07-07T04:10:00.000Z'
-      },
-      {
-        id: 8,
-        user_id: 'user_505',
-        symptoms: ['sore throat', 'hoarse voice', 'dry cough'],
-        illness_type: 'Laryngitis',
-        severity: 'mild',
-        latitude: -23.5505,
-        longitude: -46.6333,
-        country: 'Brazil',
-        city: 'São Paulo',
-        created_at: '2025-07-07T03:25:00.000Z'
-      },
-      {
-        id: 9,
-        user_id: 'user_606',
-        symptoms: ['fever', 'rash', 'joint pain'],
-        illness_type: 'Dengue fever',
-        severity: 'moderate',
-        latitude: 35.6762,
-        longitude: 139.6503,
-        country: 'Japan',
-        city: 'Tokyo',
-        created_at: '2025-07-07T02:40:00.000Z'
-      },
-      {
-        id: 10,
-        user_id: 'user_707',
-        symptoms: ['cough', 'wheezing', 'chest tightness'],
-        illness_type: 'Asthma',
-        severity: 'moderate',
-        latitude: 37.5665,
-        longitude: 126.9780,
-        country: 'South Korea',
-        city: 'Seoul',
-        created_at: '2025-07-07T01:55:00.000Z'
-      },
-      {
-        id: 11,
-        user_id: 'user_808',
-        symptoms: ['fever', 'sore throat', 'swollen lymph nodes'],
-        illness_type: 'Mononucleosis',
-        severity: 'moderate',
-        latitude: 55.7558,
-        longitude: 37.6176,
-        country: 'Russia',
-        city: 'Moscow',
-        created_at: '2025-07-06T23:30:00.000Z'
-      },
-      {
-        id: 12,
-        user_id: 'user_909',
-        symptoms: ['abdominal pain', 'nausea', 'loss of appetite'],
-        illness_type: 'Appendicitis',
-        severity: 'severe',
-        latitude: 39.9042,
-        longitude: 116.4074,
-        country: 'China',
-        city: 'Beijing',
-        created_at: '2025-07-06T22:15:00.000Z'
-      },
-      {
-        id: 13,
-        user_id: 'user_1010',
-        symptoms: ['fever', 'chills', 'sweating'],
-        illness_type: 'Malaria',
-        severity: 'severe',
-        latitude: 6.5244,
-        longitude: 3.3792,
-        country: 'Nigeria',
-        city: 'Lagos',
-        created_at: '2025-07-06T21:00:00.000Z'
-      },
-      {
-        id: 14,
-        user_id: 'user_1111',
-        symptoms: ['headache', 'dizziness', 'nausea'],
-        illness_type: 'Vertigo',
-        severity: 'mild',
-        latitude: 25.2048,
-        longitude: 55.2708,
-        country: 'United Arab Emirates',
-        city: 'Dubai',
-        created_at: '2025-07-06T20:30:00.000Z'
-      },
-      {
-        id: 15,
-        user_id: 'user_1212',
-        symptoms: ['fever', 'cough', 'fatigue', 'loss of taste'],
-        illness_type: 'COVID-19',
-        severity: 'mild',
-        latitude: 28.6139,
-        longitude: 77.2090,
-        country: 'India',
-        city: 'New Delhi',
-        created_at: '2025-07-06T19:45:00.000Z'
-      }
+    // Use comprehensive global locations from the existing script
+    const globalLocations = [
+      // North America
+      { country: 'United States', city: 'New York', lat: 40.7128, lng: -74.0060 },
+      { country: 'United States', city: 'Los Angeles', lat: 34.0522, lng: -118.2437 },
+      { country: 'United States', city: 'Chicago', lat: 41.8781, lng: -87.6298 },
+      { country: 'United States', city: 'Houston', lat: 29.7604, lng: -95.3698 },
+      { country: 'United States', city: 'Miami', lat: 25.7617, lng: -80.1918 },
+      { country: 'Canada', city: 'Toronto', lat: 43.6532, lng: -79.3832 },
+      { country: 'Canada', city: 'Vancouver', lat: 49.2827, lng: -123.1207 },
+      { country: 'Mexico', city: 'Mexico City', lat: 19.4326, lng: -99.1332 },
+      
+      // Europe
+      { country: 'United Kingdom', city: 'London', lat: 51.5074, lng: -0.1278 },
+      { country: 'United Kingdom', city: 'Manchester', lat: 53.4808, lng: -2.2426 },
+      { country: 'France', city: 'Paris', lat: 48.8566, lng: 2.3522 },
+      { country: 'France', city: 'Marseille', lat: 43.2965, lng: 5.3698 },
+      { country: 'Germany', city: 'Berlin', lat: 52.5200, lng: 13.4050 },
+      { country: 'Germany', city: 'Munich', lat: 48.1351, lng: 11.5820 },
+      { country: 'Spain', city: 'Madrid', lat: 40.4168, lng: -3.7038 },
+      { country: 'Spain', city: 'Barcelona', lat: 41.3851, lng: 2.1734 },
+      { country: 'Italy', city: 'Rome', lat: 41.9028, lng: 12.4964 },
+      { country: 'Italy', city: 'Milan', lat: 45.4642, lng: 9.1900 },
+      { country: 'Netherlands', city: 'Amsterdam', lat: 52.3676, lng: 4.9041 },
+      { country: 'Sweden', city: 'Stockholm', lat: 59.3293, lng: 18.0686 },
+      { country: 'Norway', city: 'Oslo', lat: 59.9139, lng: 10.7522 },
+      { country: 'Denmark', city: 'Copenhagen', lat: 55.6761, lng: 12.5683 },
+      { country: 'Russia', city: 'Moscow', lat: 55.7558, lng: 37.6176 },
+      { country: 'Russia', city: 'Saint Petersburg', lat: 59.9311, lng: 30.3609 },
+      
+      // Asia
+      { country: 'Japan', city: 'Tokyo', lat: 35.6762, lng: 139.6503 },
+      { country: 'Japan', city: 'Osaka', lat: 34.6937, lng: 135.5023 },
+      { country: 'South Korea', city: 'Seoul', lat: 37.5665, lng: 126.9780 },
+      { country: 'South Korea', city: 'Busan', lat: 35.1796, lng: 129.0756 },
+      { country: 'China', city: 'Beijing', lat: 39.9042, lng: 116.4074 },
+      { country: 'China', city: 'Shanghai', lat: 31.2304, lng: 121.4737 },
+      { country: 'China', city: 'Guangzhou', lat: 23.1291, lng: 113.2644 },
+      { country: 'India', city: 'Mumbai', lat: 19.0760, lng: 72.8777 },
+      { country: 'India', city: 'New Delhi', lat: 28.6139, lng: 77.2090 },
+      { country: 'India', city: 'Bangalore', lat: 12.9716, lng: 77.5946 },
+      { country: 'India', city: 'Kolkata', lat: 22.5726, lng: 88.3639 },
+      { country: 'India', city: 'Chennai', lat: 13.0827, lng: 80.2707 },
+      { country: 'Singapore', city: 'Singapore', lat: 1.3521, lng: 103.8198 },
+      { country: 'Thailand', city: 'Bangkok', lat: 13.7563, lng: 100.5018 },
+      { country: 'Vietnam', city: 'Hanoi', lat: 21.0285, lng: 105.8542 },
+      { country: 'Vietnam', city: 'Ho Chi Minh City', lat: 10.8231, lng: 106.6297 },
+      { country: 'Malaysia', city: 'Kuala Lumpur', lat: 3.1390, lng: 101.6869 },
+      { country: 'Indonesia', city: 'Jakarta', lat: -6.2088, lng: 106.8456 },
+      { country: 'Philippines', city: 'Manila', lat: 14.5995, lng: 120.9842 },
+      
+      // Australia & Oceania
+      { country: 'Australia', city: 'Sydney', lat: -33.8688, lng: 151.2093 },
+      { country: 'Australia', city: 'Melbourne', lat: -37.8136, lng: 144.9631 },
+      { country: 'Australia', city: 'Brisbane', lat: -27.4698, lng: 153.0251 },
+      { country: 'New Zealand', city: 'Auckland', lat: -36.8485, lng: 174.7633 },
+      { country: 'New Zealand', city: 'Wellington', lat: -41.2866, lng: 174.7756 },
+      
+      // South America
+      { country: 'Brazil', city: 'São Paulo', lat: -23.5505, lng: -46.6333 },
+      { country: 'Brazil', city: 'Rio de Janeiro', lat: -22.9068, lng: -43.1729 },
+      { country: 'Brazil', city: 'Salvador', lat: -12.9714, lng: -38.5011 },
+      { country: 'Argentina', city: 'Buenos Aires', lat: -34.6118, lng: -58.3960 },
+      { country: 'Chile', city: 'Santiago', lat: -33.4489, lng: -70.6693 },
+      { country: 'Colombia', city: 'Bogotá', lat: 4.7110, lng: -74.0721 },
+      { country: 'Peru', city: 'Lima', lat: -12.0464, lng: -77.0428 },
+      
+      // Africa
+      { country: 'South Africa', city: 'Johannesburg', lat: -26.2041, lng: 28.0473 },
+      { country: 'South Africa', city: 'Cape Town', lat: -33.9249, lng: 18.4241 },
+      { country: 'Nigeria', city: 'Lagos', lat: 6.5244, lng: 3.3792 },
+      { country: 'Nigeria', city: 'Kano', lat: 11.9914, lng: 8.5317 },
+      { country: 'Kenya', city: 'Nairobi', lat: -1.2921, lng: 36.8219 },
+      { country: 'Egypt', city: 'Cairo', lat: 30.0444, lng: 31.2357 },
+      { country: 'Morocco', city: 'Casablanca', lat: 33.5731, lng: -7.5898 },
+      { country: 'Ghana', city: 'Accra', lat: 5.5600, lng: -0.2057 },
+      { country: 'Ethiopia', city: 'Addis Ababa', lat: 9.0320, lng: 38.7486 },
+      
+      // Middle East
+      { country: 'United Arab Emirates', city: 'Dubai', lat: 25.2048, lng: 55.2708 },
+      { country: 'United Arab Emirates', city: 'Abu Dhabi', lat: 24.4539, lng: 54.3773 },
+      { country: 'Turkey', city: 'Istanbul', lat: 41.0082, lng: 28.9784 },
+      { country: 'Turkey', city: 'Ankara', lat: 39.9334, lng: 32.8597 },
+      { country: 'Iran', city: 'Tehran', lat: 35.6892, lng: 51.3890 },
+      { country: 'Saudi Arabia', city: 'Riyadh', lat: 24.7136, lng: 46.6753 },
+      { country: 'Israel', city: 'Tel Aviv', lat: 32.0853, lng: 34.7818 },
+      { country: 'Lebanon', city: 'Beirut', lat: 33.8935, lng: 35.5016 },
+      { country: 'Jordan', city: 'Amman', lat: 31.9454, lng: 35.9284 },
+      { country: 'Iraq', city: 'Baghdad', lat: 33.3152, lng: 44.3661 }
     ];
+
+    // Disease patterns from the existing script
+    const diseasePatterns = {
+      flu: {
+        symptoms: ['Fever', 'Cough', 'Sore throat', 'Body aches', 'Fatigue', 'Headache'],
+        severity: ['mild', 'moderate', 'severe'],
+        global: true
+      },
+      covid: {
+        symptoms: ['Fever', 'Cough', 'Fatigue', 'Loss of taste/smell', 'Shortness of breath', 'Body aches'],
+        severity: ['mild', 'moderate', 'severe'],
+        global: true
+      },
+      dengue: {
+        symptoms: ['High fever', 'Severe headache', 'Joint pain', 'Muscle pain', 'Rash', 'Nausea'],
+        severity: ['mild', 'moderate', 'severe'],
+        tropical: true
+      },
+      malaria: {
+        symptoms: ['Cyclic fever', 'Chills', 'Sweating', 'Headache', 'Nausea', 'Fatigue'],
+        severity: ['mild', 'moderate', 'severe'],
+        tropical: true
+      },
+      typhoid: {
+        symptoms: ['High fever', 'Headache', 'Abdominal pain', 'Diarrhea', 'Loss of appetite'],
+        severity: ['mild', 'moderate', 'severe'],
+        developing: true
+      },
+      chikungunya: {
+        symptoms: ['High fever', 'Joint pain', 'Muscle pain', 'Headache', 'Rash', 'Fatigue'],
+        severity: ['mild', 'moderate'],
+        tropical: true
+      }
+    };
+
+    const globalNicknames = [
+      'HealthWatcher', 'WellnessSeeker', 'CommunityCare', 'HealthGuard', 'WellnessBuddy',
+      'HealthTracker', 'CommunityHealth', 'WellnessGuide', 'HealthMonitor', 'WellnessPartner',
+      'HealthHelper', 'CommunityWell', 'WellnessFriend', 'HealthSupporter', 'WellnessAdvocate'
+    ];
+
+    // Generate comprehensive reports
+    const reports = [];
+    
+    for (let i = 1; i <= 50; i++) {
+      const locationIndex = Math.floor(Math.random() * globalLocations.length);
+      const location = globalLocations[locationIndex];
+      const diseaseTypes = Object.keys(diseasePatterns);
+      const diseaseType = diseaseTypes[Math.floor(Math.random() * diseaseTypes.length)];
+      const pattern = diseasePatterns[diseaseType];
+      
+      // Check if disease should occur in this location
+      let shouldInclude = true;
+      if (pattern.tropical) {
+        const absLat = Math.abs(location.lat);
+        shouldInclude = absLat < 30; // Tropical regions
+      } else if (pattern.developing) {
+        const developingCountries = ['India', 'Brazil', 'China', 'Indonesia', 'Philippines', 'Thailand', 'Vietnam', 'Malaysia', 'Nigeria', 'Kenya', 'Ghana', 'Egypt', 'Morocco', 'Peru', 'Colombia'];
+        shouldInclude = developingCountries.includes(location.country);
+      }
+      
+      if (!shouldInclude) continue;
+      
+      // Generate realistic symptoms
+      const numSymptoms = Math.floor(Math.random() * 3) + 2; // 2-4 symptoms
+      const userSymptoms = pattern.symptoms.slice(0, numSymptoms);
+      
+      // Add location variation
+      const latOffset = (Math.random() - 0.5) * 0.1;
+      const lngOffset = (Math.random() - 0.5) * 0.1;
+
+      const report = {
+        id: i,
+        user_id: `user_${Math.floor(Math.random() * 10000)}`,
+        nickname: globalNicknames[Math.floor(Math.random() * globalNicknames.length)],
+        symptoms: userSymptoms,
+        illness_type: diseaseType,
+        severity: pattern.severity[Math.floor(Math.random() * pattern.severity.length)],
+        latitude: location.lat + latOffset,
+        longitude: location.lng + lngOffset,
+        country: location.country,
+        city: location.city,
+        created_at: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString()
+      };
+      
+      reports.push(report);
+    }
 
     return new Response(
       JSON.stringify(reports),

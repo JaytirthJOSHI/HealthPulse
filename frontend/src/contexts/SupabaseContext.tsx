@@ -72,6 +72,9 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
           const reportsResponse = await fetch(`${API_BASE_URL}/api/reports`);
           if (reportsResponse.ok) {
             const reportsData = await reportsResponse.json();
+            console.log('SupabaseContext: Raw API data:', reportsData.length, 'reports');
+            console.log('SupabaseContext: Sample raw report:', reportsData[0]);
+            
             const transformedReports = (reportsData || []).map((report: any) => ({
               id: report.id,
               nickname: report.nickname,
@@ -84,7 +87,8 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
               latitude: report.latitude,
               longitude: report.longitude,
             }));
-            console.log('Transformed reports:', transformedReports.length, 'reports loaded');
+            console.log('SupabaseContext: Transformed reports:', transformedReports.length, 'reports loaded');
+            console.log('SupabaseContext: Sample transformed report:', transformedReports[0]);
             setReports(transformedReports);
           } else {
             console.warn('Reports API not available, using empty array');

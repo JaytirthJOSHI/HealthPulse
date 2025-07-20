@@ -17,17 +17,28 @@ const HealthMap: React.FC = () => {
 
   // Convert reports to map data points with time filtering
   useEffect(() => {
+    console.log('HealthMap: Received reports:', reports.length);
+    console.log('HealthMap: Sample report:', reports[0]);
+    
     const filteredReports = reports.filter(report => {
-        if (!report.latitude || !report.longitude) return false; // Ensure lat/lng exist
+        if (!report.latitude || !report.longitude) {
+          console.log('HealthMap: Filtering out report without lat/lng:', report);
+          return false; // Ensure lat/lng exist
+        }
         // For demo data, show all reports regardless of date
         if (report.createdAt && report.createdAt.includes('1969')) {
+          console.log('HealthMap: Including demo data report:', report);
           return true;
         }
         // For real data, apply time filter
         const reportDate = new Date(report.createdAt);
         const timeDiff = new Date().getTime() - reportDate.getTime();
-        return timeDiff / (1000 * 3600 * 24) <= timeFilter;
+        const daysDiff = timeDiff / (1000 * 3600 * 24);
+        console.log('HealthMap: Report date check:', report.createdAt, 'days diff:', daysDiff);
+        return daysDiff <= timeFilter;
     });
+
+    console.log('HealthMap: Filtered reports:', filteredReports.length);
 
     const groupedByLocation: { [key: string]: SymptomReport[] } = filteredReports.reduce((acc, report) => {
         const key = `${report.latitude!.toFixed(3)},${report.longitude!.toFixed(3)}`;
@@ -50,6 +61,7 @@ const HealthMap: React.FC = () => {
         };
     });
     console.log('Map data points:', dataPoints.length, 'from', reports.length, 'reports');
+    console.log('Map data points sample:', dataPoints[0]);
     setMapData(dataPoints);
   }, [reports, timeFilter]);
 
