@@ -79,11 +79,11 @@ export const SupabaseProvider: React.FC<SupabaseProviderProps> = ({ children }) 
               id: report.id,
               nickname: report.nickname,
               country: report.country,
-              pinCode: report.pin_code || '00000', // Default pin code if not provided
+              pinCode: report.pinCode || report.pin_code || '00000',
               symptoms: report.symptoms,
-              illnessType: report.illness_type,
+              illnessType: report.illnessType || report.illness_type,
               severity: report.severity,
-              createdAt: report.created_at,
+              createdAt: report.createdAt || report.created_at,
               latitude: report.latitude,
               longitude: report.longitude,
             }));
