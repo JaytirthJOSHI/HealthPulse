@@ -28,18 +28,6 @@ const HealthMap: React.FC = () => {
         // Temporarily disable date filtering to debug
         console.log('HealthMap: Including all reports with lat/lng');
         return true;
-        
-        // For demo data, show all reports regardless of date
-        if (report.createdAt && report.createdAt.includes('1969')) {
-          console.log('HealthMap: Including demo data report:', report);
-          return true;
-        }
-        // For real data, apply time filter
-        const reportDate = new Date(report.createdAt);
-        const timeDiff = new Date().getTime() - reportDate.getTime();
-        const daysDiff = timeDiff / (1000 * 3600 * 24);
-        console.log('HealthMap: Report date check:', report.createdAt, 'days diff:', daysDiff);
-        return daysDiff <= timeFilter;
     });
 
     console.log('HealthMap: Filtered reports:', filteredReports.length);
