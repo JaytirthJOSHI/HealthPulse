@@ -33,6 +33,8 @@ interface PrivateMessage {
 // In-memory storage for private chat rooms
 let privateChatRooms = new Map<string, PrivateChatRoom>();
 
+// In-memory storage for symptom reports (non-persistent)
+
 // CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -163,7 +165,73 @@ export default {
 
       // Health monitoring API endpoints
       if (path === '/api/reports' && request.method === 'GET') {
-        return await handleGetReportsAPI();
+        // Fetch all report keys
+        const list = await env.MESSAGES_KV.list({ prefix: 'report:' });
+        const reports: any[] = [];
+        for (const key of list.keys) {
+          const value = await env.MESSAGES_KV.get(key.name);
+          if (value) {
+            try {
+              reports.push(JSON.parse(value));
+            } catch {}
+          }
+        }
+        // Sort by createdAt descending
+        reports.sort((a, b) => (b.createdAt || 0).localeCompare(a.createdAt || 0));
+        return new Response(
+          JSON.stringify(reports),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          }
+        );
+      }
+
+      if (path === '/api/reports' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const { nickname, country, pinCode, symptoms, illnessType, severity, latitude, longitude } = body;
+
+          if (!country || !symptoms) {
+            return new Response(
+              JSON.stringify({ error: 'Missing required fields' }),
+              {
+                status: 400,
+                headers: { 'Content-Type': 'application/json', ...corsHeaders },
+              }
+            );
+          }
+
+          const newReport = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+            nickname: nickname || 'Anonymous',
+            country,
+            pinCode,
+            symptoms,
+            illnessType,
+            severity,
+            latitude,
+            longitude,
+            createdAt: new Date().toISOString(),
+          };
+          await env.MESSAGES_KV.put(`report:${newReport.id}`, JSON.stringify(newReport));
+
+          return new Response(
+            JSON.stringify({ success: true, data: newReport }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            }
+          );
+        } catch (error) {
+          return new Response(
+            JSON.stringify({ error: 'Internal server error' }),
+            {
+              status: 500,
+              headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            }
+          );
+        }
       }
 
       if (path === '/api/health-aggregates' && request.method === 'GET') {
@@ -725,6 +793,79 @@ async function handleGetReportsAPI(): Promise<Response> {
           'Content-Type': 'application/json',
           ...corsHeaders,
         },
+      }
+    );
+  }
+}
+
+async function handlePostReportAPI(request: Request, env: Env): Promise<Response> {
+  try {
+    const body = await request.json();
+    const { nickname, country, pinCode, symptoms, illnessType, severity, latitude, longitude } = body;
+
+    // Validate required fields (nickname is optional in frontend, but backend expects it, so default to 'Anonymous')
+    if (!country || !symptoms) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields' }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        }
+      );
+    }
+
+    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
+    const { data, error } = await supabase
+      .from('symptom_reports')
+      .insert([
+        {
+          nickname: nickname || 'Anonymous',
+          country,
+          pin_code: pinCode,
+          symptoms,
+          illness_type: illnessType,
+          severity,
+          latitude,
+          longitude,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error storing report:', error);
+      return new Response(
+        JSON.stringify({ error: 'Failed to store report' }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          ...data,
+          id: data.id,
+          pinCode: data.pin_code,
+          illnessType: data.illness_type,
+          createdAt: data.created_at,
+        },
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      }
+    );
+  } catch (error) {
+    console.error('Error in POST /api/reports:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       }
     );
   }
