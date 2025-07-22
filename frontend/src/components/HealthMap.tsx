@@ -76,13 +76,6 @@ const HealthMap: React.FC = () => {
         <meta name="description" content="Interactive health map showing real-time disease outbreaks and symptom reports worldwide. Track health trends and community health data with HealthSathi's Pulse." />
         <meta name="keywords" content="health map, disease tracking, outbreak map, real-time health data, community health monitoring, HealthSathi's Pulse" />
       </HelmetWrapper>
-      {/* DEBUG OVERLAY */}
-      <div style={{ position: 'fixed', top: 0, right: 0, zIndex: 9999, background: 'rgba(255,255,255,0.95)', maxHeight: '50vh', overflow: 'auto', fontSize: 12, padding: 8, border: '1px solid #ccc' }}>
-        <strong>DEBUG: Reports from API ({reports.length})</strong>
-        <pre style={{ maxWidth: 400, whiteSpace: 'pre-wrap' }}>{JSON.stringify(reports, null, 2)}</pre>
-        <strong>DEBUG: Map Data Points ({mapData.length})</strong>
-        <pre style={{ maxWidth: 400, whiteSpace: 'pre-wrap' }}>{JSON.stringify(mapData, null, 2)}</pre>
-      </div>
       
       <div className="h-full w-full relative z-0">
         <MapContainer
