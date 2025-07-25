@@ -339,7 +339,6 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
           {[
             { id: 'groups', label: 'Support Groups', icon: <Users size={20} /> },
             { id: 'challenges', label: 'Health Challenges', icon: <Trophy size={20} /> },
-            { id: 'mentorship', label: 'Mentorship', icon: <Heart size={20} /> },
             { id: 'emergency', label: 'Emergency Support', icon: <AlertTriangle size={20} /> }
           ].map(tab => (
             <button
@@ -474,28 +473,6 @@ const CollaborativeFeatures: React.FC<CollaborativeFeaturesProps> = ({ isVisible
                     </button>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'mentorship' && (
-            <div className="h-full p-6">
-              <h3 className="text-lg font-semibold mb-6">Health Mentorship</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="border border-gray-200 rounded-lg p-6">
-                  <h4 className="font-semibold mb-4">Find a Mentor</h4>
-                  <p className="text-gray-600 mb-4">Connect with experienced health mentors for guidance and support.</p>
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors">
-                    Browse Mentors
-                  </button>
-                </div>
-                <div className="border border-gray-200 rounded-lg p-6">
-                  <h4 className="font-semibold mb-4">Become a Mentor</h4>
-                  <p className="text-gray-600 mb-4">Share your health knowledge and help others on their wellness journey.</p>
-                  <button className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-colors">
-                    Apply as Mentor
-                  </button>
-                </div>
               </div>
             </div>
           )}

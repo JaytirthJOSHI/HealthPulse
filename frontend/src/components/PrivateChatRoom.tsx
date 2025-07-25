@@ -237,7 +237,7 @@ const PrivateChatRoom: React.FC = () => {
         senderName: message.data.senderName,
         message: message.data.message,
         messageType: 'text',
-        timestamp: message.timestamp ? message.timestamp.toString() : new Date().toISOString()
+        timestamp: message.timestamp ? new Date(message.timestamp).toISOString() : new Date().toISOString()
       };
 
       setCurrentRoom(prev => prev ? {
@@ -298,10 +298,19 @@ const PrivateChatRoom: React.FC = () => {
   };
 
   const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) {
+        return 'Invalid time';
+      }
+      return date.toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return 'Invalid time';
+    }
   };
 
   const formatTimeRemaining = () => {
