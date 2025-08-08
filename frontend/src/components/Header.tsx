@@ -1,20 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Sun, Moon, Settings, Users, Heart, MessageCircle } from 'lucide-react';
+import { Menu, X, Sun, Moon, Settings, MessageCircle } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { isFeatureEnabled } from '../config/features';
 
 interface HeaderProps {
-  connectFeatureEnabled?: boolean;
-  onToggleConnectFeature?: (enabled: boolean) => void;
-  onOpenCollaborativeFeatures?: () => void;
   onOpenPrivateChatRoom?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
-  connectFeatureEnabled = false, 
-  onToggleConnectFeature,
-  onOpenCollaborativeFeatures,
   onOpenPrivateChatRoom
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -79,33 +73,6 @@ const Header: React.FC<HeaderProps> = ({
               <span className="hidden sm:inline">Private Chat</span>
             </button>
 
-            {/* Health Community Button */}
-            {isFeatureEnabled('COMMUNITY_ENABLED') && onOpenCollaborativeFeatures && (
-              <button
-                onClick={onOpenCollaborativeFeatures}
-                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg transition-all hover:scale-105 shadow-lg font-medium"
-                title="Open Health Community"
-              >
-                <Heart className="w-5 h-5" />
-                <span className="hidden sm:inline">Community</span>
-              </button>
-            )}
-
-            {/* Connect Feature Toggle */}
-            {onToggleConnectFeature && (
-              <button
-                onClick={() => onToggleConnectFeature(!connectFeatureEnabled)}
-                className={`p-2 rounded-lg transition-colors ${
-                  connectFeatureEnabled
-                    ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400'
-                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
-                }`}
-                title={connectFeatureEnabled ? 'Disable Connect Feature' : 'Enable Connect Feature'}
-              >
-                <Users className="w-5 h-5" />
-              </button>
-            )}
-
             {/* Settings */}
             <button
               onClick={() => setShowSettings(!showSettings)}
@@ -139,27 +106,6 @@ const Header: React.FC<HeaderProps> = ({
           <div className="absolute top-16 right-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-4 w-64 z-50">
             <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Settings</h3>
             
-            {onToggleConnectFeature && (
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">Connect Feature</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Connect with random users</p>
-                </div>
-                <button
-                  onClick={() => onToggleConnectFeature(!connectFeatureEnabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    connectFeatureEnabled ? 'bg-purple-500' : 'bg-gray-200 dark:bg-gray-700'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      connectFeatureEnabled ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            )}
-
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-900 dark:text-white">Dark Mode</p>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -13,7 +13,6 @@ import PhoneAI from './components/PhoneAI';
 import PredictiveAnalytics from './components/PredictiveAnalytics';
 import ConnectFeature from './components/ConnectFeature';
 import HealthCommunity from './components/HealthCommunity';
-import CollaborativeFeatures from './components/CollaborativeFeatures';
 import PrivateChatRoom from './components/PrivateChatRoom';
 import AccessibilityMenu from './components/AccessibilityMenu';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -22,9 +21,6 @@ import './App.css';
 const HelmetWrapper = Helmet as any;
 
 function App() {
-  const [connectFeatureEnabled, setConnectFeatureEnabled] = useState(false);
-  const [collaborativeFeaturesVisible, setCollaborativeFeaturesVisible] = useState(false);
-
   return (
     <ThemeProvider>
       <ToastProvider>
@@ -40,11 +36,7 @@ function App() {
             <a href="#main-content" className="sr-only focus:not-sr-only absolute top-2 left-2 z-50 bg-primary-600 text-white px-4 py-2 rounded shadow transition-all">
               Skip to main content
             </a>
-            <Header 
-              connectFeatureEnabled={connectFeatureEnabled}
-              onToggleConnectFeature={setConnectFeatureEnabled}
-              onOpenCollaborativeFeatures={() => setCollaborativeFeaturesVisible(true)}
-            />
+            <Header />
             <main id="main-content" className="container mx-auto px-4 py-6 flex-grow" aria-label="Main Content">
               <Routes>
                 <Route path="/" element={<HomeScreen />} />
@@ -60,12 +52,6 @@ function App() {
             
             {/* Health Community */}
             <HealthCommunity />
-
-            {/* Collaborative Features */}
-            <CollaborativeFeatures 
-              isVisible={collaborativeFeaturesVisible}
-              onClose={() => setCollaborativeFeaturesVisible(false)}
-            />
 
             {/* Private Chat Room */}
             <PrivateChatRoom />
