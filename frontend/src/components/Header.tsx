@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Sun, Moon, Settings, MessageCircle } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
-import { isFeatureEnabled } from '../config/features';
 
 interface HeaderProps {
   onOpenPrivateChatRoom?: () => void;
